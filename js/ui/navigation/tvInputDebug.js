@@ -2,6 +2,8 @@
 // Diagnostic overlay for Smart TV browsers. Enable it with ?tvdebug=1 (or #tvdebug)
 // to see which key codes the TV actually delivers to the page.
 
+import { PluginManager } from "../../core/player/pluginManager.js";
+
 function isDebugEnabled() {
   try {
     const search = String(globalThis.location?.search || "");
@@ -68,6 +70,16 @@ export function installTvInputDebug() {
 
   const render = () => {
     const ua = String(globalThis.navigator?.userAgent || "");
+    let pluginLine = "eklenti: " + (globalThis.__NUVIO_ALLOW_BROWSER_PLUGIN_RUNTIME__ === true ? "acik" : "kapali");
+    try {
+      const capability = PluginManager.getCapabilitySnapshot();
+      pluginLine += "  durum: " + (capability.executable ? "hazir" : String(capability.runtimeStatus || "bekliyor"));
+      if (capability.runtimeError) {
+        pluginLine += "  hata: " + String(capability.runtimeError).slice(0, 140);
+      }
+    } catch (_) {
+      // ignore
+    }
     const lines = [
       "NUVIO TV DEBUG  |  ekran: " + currentScreenId() + "  |  odak: " + currentFocusLabel(),
       "tus sayisi: " + keyCount + "  |  son tus: " + lastKey,
@@ -75,8 +87,8 @@ export function installTvInputDebug() {
         "  |  " + String(globalThis.innerWidth) + "x" + String(globalThis.innerHeight),
       "runtime: Worker=" + (typeof globalThis.Worker === "function" ? "var" : "YOK") +
         "  WebAssembly=" + (typeof globalThis.WebAssembly === "object" ? "var" : "YOK") +
-        "  fetch=" + (typeof globalThis.fetch === "function" ? "var" : "YOK") +
-        "  eklenti=" + (globalThis.__NUVIO_ALLOW_BROWSER_PLUGIN_RUNTIME__ === true ? "acik" : "kapali"),
+        "  fetch=" + (typeof globalThis.fetch === "function" ? "var" : "YOK"),
+      pluginLine,
       "UA: " + ua.slice(0, 220)
     ];
     if (errors.length) {
