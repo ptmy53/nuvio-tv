@@ -201,6 +201,37 @@ export function createPlayerVideoEventHandlers(video, isTizenAvPlayPlayback) {
       }
 
       this.markPlaybackSourceFailed(this.activePlaybackUrl);
+      // Browser plugin providers can occasionally return an interstitial HTML
+      // page (for example a stale HubCloud/PixelServer link) as if it were a
+      // media URL. Do not leave the TV on that dead source: try the next
+      // already-discovered candidate before showing the fatal startup dialog.
+      if (typeof this.playStreamCandidate === "function" && Array.isArray(this.streamCandidates)) {
+        const failedUrl = String(this.activePlaybackUrl || "").trim();
+        const nextIndex = this.streamCandidates.findIndex((candidate, index) => {
+          if (!candidate || index === this.currentStreamIndex) return false;
+          const candidateUrl = String(candidate.url || "").trim();
+          if (!candidateUrl || candidateUrl === failedUrl) return false;
+          if (this.failedPlaybackUrls?.has?.(candidateUrl)) return false;
+          if (this.failedPlaybackStreamIds?.has?.(String(candidate.id || ""))) return false;
+          return true;
+        });
+        if (nextIndex >= 0) {
+          const nextCandidate = this.streamCandidates[nextIndex];
+          this.currentStreamIndex = nextIndex;
+          this.lastPlaybackErrorAt = 0;
+          this.loadingVisible = true;
+          this.paused = false;
+          this.sourcesError = null;
+          this.updateLoadingVisibility();
+          console.warn("Playback startup failed; trying the next source", {
+            failedUrl,
+            nextUrl: nextCandidate.url,
+            mediaErrorCode
+          });
+          void this.playStreamCandidate(nextCandidate, { preservePlaybackState: true });
+          return;
+        }
+      }
       const targetEngine =
         !terminalHlsHttpFailure && typeof PlayerController.getAlternativePlaybackEngine === "function"
           ? PlayerController.getAlternativePlaybackEngine(this.activePlaybackUrl)
