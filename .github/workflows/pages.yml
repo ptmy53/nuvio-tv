@@ -1,0 +1,86 @@
+name: Build and deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: github-pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Runtime configuration. Values come from repository secrets; empty
+      # values are allowed and the app still boots.
+      - name: Write local.properties
+        env:
+          TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
+          TRAKT_CLIENT_ID: ${{ secrets.TRAKT_CLIENT_ID }}
+          TRAKT_CLIENT_SECRET: ${{ secrets.TRAKT_CLIENT_SECRET }}
+          SIMKL_CLIENT_ID: ${{ secrets.SIMKL_CLIENT_ID }}
+          MDBLIST_CLIENT_ID: ${{ secrets.MDBLIST_CLIENT_ID }}
+        run: |
+          cat > local.properties <<EOF
+          TMDB_API_KEY=${TMDB_API_KEY}
+          TRAKT_CLIENT_ID=${TRAKT_CLIENT_ID}
+          TRAKT_CLIENT_SECRET=${TRAKT_CLIENT_SECRET}
+          SIMKL_CLIENT_ID=${SIMKL_CLIENT_ID}
+          SIMKL_APP_NAME=nuvio
+          MDBLIST_CLIENT_ID=${MDBLIST_CLIENT_ID}
+          YOUTUBE_PROXY_URL=youtube-proxy.html
+          INTRODB_API_URL=https://api.introdb.app/
+          SUPPORTERS_API_BASE_URL=https://nuvio.tv/
+          SUPPORT_URL=https://nuvio.tv/support
+          EOF
+
+      - name: Build
+        run: npm run build
+
+      # GitHub Pages has no SPA fallback, so deep links are redirected to the
+      # site root instead of showing a 404 page.
+      - name: Prepare Pages artifact
+        run: |
+          REPO="${{ github.event.repository.name }}"
+          if [[ "$REPO" == *.github.io ]]; then BASE="/"; else BASE="/$REPO/"; fi
+          cat > dist/404.html <<EOF
+          <!doctype html><meta charset="utf-8"><title>Yönlendiriliyor…</title>
+          <script>location.replace("$BASE" + location.hash);</script>
+          <p><a href="$BASE">Nuvio TV</a></p>
+          EOF
+          touch dist/.nojekyll
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v4
