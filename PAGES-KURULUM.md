@@ -1,5 +1,8 @@
 # Nuvio TV — GitHub Pages ile kendi kopyanı yayınlama
 
+> **Canlı adres:** https://ptmy53.github.io/nuvio-tv/
+> **Depo:** https://github.com/ptmy53/nuvio-tv
+
 Bu klasör, `NuvioMedia/NuvioTVSmart` deposunun klonu + GitHub Pages yapılandırmasıdır.
 Amaç: depoyu kendine kopyalamak, düzenlemek ve `https://<kullanıcı>.github.io/<depo>/`
 adresinden PC tarayıcısında açmak.
