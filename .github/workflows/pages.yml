@@ -63,6 +63,15 @@ jobs:
       - name: Build
         run: npm run build
 
+      # GitHub Pages caches asset URLs for several minutes. Rewriting the ?v=
+      # token with the commit SHA makes every deploy a fresh URL, so TVs that
+      # keep the page open still load the new bundle after a reload.
+      - name: Cache-bust static assets
+        run: |
+          VERSION="${GITHUB_SHA::8}"
+          sed -i "s/?v=[A-Za-z0-9._-]*/?v=${VERSION}/g" dist/index.html
+          grep -o "app.bundle.js?v=[^\"']*" dist/index.html
+
       # GitHub Pages has no SPA fallback, so deep links are redirected to the
       # site root instead of showing a 404 page.
       - name: Prepare Pages artifact
