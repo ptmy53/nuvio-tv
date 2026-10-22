@@ -1865,6 +1865,8 @@
     <string name="plugin_group_by_repository_subtitle">In Streams, show one provider per repository instead of one per source</string>
     <string name="plugin_add_repository">Add repository</string>
     <string name="plugin_add_btn">Add</string>
+    <string name="plugin_suggested_repo">Fill suggested repository</string>
+    <string name="plugin_suggested_repo_filled">Suggested repository address filled in. Press Add to install it.</string>
     <string name="plugin_manage_from_phone_title">Manage from phone</string>
     <string name="plugin_manage_from_phone_subtitle">Scan a QR code to add or remove repositories from your phone</string>
     <string name="plugin_qr_instruction">Scan with your phone to manage repositories</string>

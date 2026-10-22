@@ -364,6 +364,12 @@
   gap: 14px;
 }
 
+.plugins-add-suggested-row {
+  grid-template-columns: auto;
+  justify-content: start;
+  margin-top: 12px;
+}
+
 .plugins-repository-input {
   min-width: 0;
   min-height: 88px;

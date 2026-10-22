@@ -16,6 +16,12 @@ import { createPluginsScreenMethods01 } from "./pluginsScreenMethods-01-mount.js
 import { createPluginsScreenMethods02 } from "./pluginsScreenMethods-02-provider-rows.js";
 import { createPluginsScreenMethods04 } from "./pluginsScreenMethods-04-refresh-repository.js";
 
+// Public Nuvio plugin collection, offered as a one-tap shortcut because typing a
+// ~90 character URL with a TV remote is impractical. Nothing is added until the
+// user confirms with the existing "Add" button.
+const SUGGESTED_REPOSITORY_URL =
+  "https://raw.githubusercontent.com/NuvioPlugin/All-in-One-Nuvio/refs/heads/main/manifest.json";
+
 export {
   ScreenUtils,
   Router,
@@ -260,6 +266,15 @@ export const PluginsScreen = {
                       loading: this.busyAction === "add-repository"
                     })}
                   </div>
+                  <div class="plugins-add-row plugins-add-suggested-row">
+                    ${button({
+                      focusKey: "add:suggested",
+                      action: "fill-suggested-repository",
+                      label: t("plugin_suggested_repo", {}, "Fill suggested repository"),
+                      icon: "auto_awesome",
+                      disabled: this.busy
+                    })}
+                  </div>
                   ${this.statusMessage && !["success", "error"].includes(this.statusKind) ? `<p class="plugins-status-message">${escapeHtml(this.statusMessage)}</p>` : ""}
                 </section>`
                 }
@@ -448,6 +463,19 @@ export const PluginsScreen = {
     }
     if (action === "toggle-group") {
       PluginManager.setGroupStreamsByRepository(!this.model.groupStreamsByRepository);
+      this.render();
+      return;
+    }
+    if (action === "fill-suggested-repository") {
+      this.addDraft = SUGGESTED_REPOSITORY_URL;
+      this.focusKey = "add:submit";
+      this.setStatus(
+        t(
+          "plugin_suggested_repo_filled",
+          {},
+          "Suggested repository address filled in. Press Add to install it."
+        )
+      );
       this.render();
       return;
     }
