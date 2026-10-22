@@ -21,6 +21,24 @@ import { createPluginsScreenMethods04 } from "./pluginsScreenMethods-04-refresh-
 // user confirms with the existing "Add" button.
 const SUGGESTED_REPOSITORY_URL =
   "https://raw.githubusercontent.com/NuvioPlugin/All-in-One-Nuvio/refs/heads/main/manifest.json";
+const CLEANUP_SCRAPER_IDS = new Set([
+  "allanime",
+  "animekai",
+  "anizone",
+  "anikototv",
+  "anidb",
+  "animepahe",
+  "animesalt",
+  "animedekho",
+  "animetsu",
+  "animeworld",
+  "anime-sama",
+  "animezey",
+  "hianime",
+  "kurage",
+  "reanime",
+  "gramcinema"
+]);
 
 export {
   ScreenUtils,
@@ -275,6 +293,15 @@ export const PluginsScreen = {
                       disabled: this.busy
                     })}
                   </div>
+                  <div class="plugins-add-row plugins-add-suggested-row">
+                    ${button({
+                      focusKey: "cleanup:anime",
+                      action: "disable-anime-and-gramcinema",
+                      label: t("plugin_cleanup_anime", {}, "Disable anime and GramCinema providers"),
+                      icon: "cleaning_services",
+                      disabled: this.busy
+                    })}
+                  </div>
                   ${this.statusMessage && !["success", "error"].includes(this.statusKind) ? `<p class="plugins-status-message">${escapeHtml(this.statusMessage)}</p>` : ""}
                 </section>`
                 }
@@ -475,6 +502,21 @@ export const PluginsScreen = {
           {},
           "Suggested repository address filled in. Press Add to install it."
         )
+      );
+      this.render();
+      return;
+    }
+    if (action === "disable-anime-and-gramcinema") {
+      const candidates = PluginManager.listScrapers().filter((scraper) =>
+        CLEANUP_SCRAPER_IDS.has(String(scraper.id || "").split(":").pop().toLowerCase())
+      );
+      let changed = 0;
+      candidates.forEach((scraper) => {
+        if (scraper.enabled !== false && PluginManager.setScraperEnabled(scraper.id, false)) changed += 1;
+      });
+      this.setStatus(
+        t("plugin_cleanup_anime_done", { count: changed }, `Disabled ${changed} anime/GramCinema providers.`),
+        "success"
       );
       this.render();
       return;
