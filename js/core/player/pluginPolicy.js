@@ -190,12 +190,15 @@ export function getPluginCapabilitySnapshot() {
     };
   }
 
+  const browserRuntime = platform === "browser";
   return {
-    ...snapshotFields(platform, PLUGIN_QUOTAS.modern, {
-      appSupported: false,
-      normalAddonsSupported: false,
+    ...snapshotFields(platform, browserRuntime ? PLUGIN_QUOTAS.limited : PLUGIN_QUOTAS.modern, {
+      appSupported: browserRuntime,
+      normalAddonsSupported: browserRuntime,
       candidate: true,
-      reason: "Waiting for the plugin runtime handshake"
+      reason: browserRuntime
+        ? "Browser plugin runtime ready (direct fetch bridge)"
+        : "Waiting for the plugin runtime handshake"
     }),
     precheckPassed: true,
     pluginServicePackaged: true

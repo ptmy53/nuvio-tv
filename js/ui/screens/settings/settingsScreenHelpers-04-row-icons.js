@@ -168,6 +168,12 @@ export function t(key, params = {}, fallback = key) {
 }
 
 export function arePluginsSupported() {
+  // Packaged TV services are the preferred backend, but browsers (and TVs
+  // that expose only a browser engine, e.g. Foxxum) can run the Web Worker +
+  // QuickJS runtime with a direct fetch bridge when it is explicitly enabled.
+  if (globalThis.__NUVIO_ALLOW_BROWSER_PLUGIN_RUNTIME__ === true) {
+    return true;
+  }
   return TizenCapabilities.canUsePlugins();
 }
 

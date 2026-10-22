@@ -73,6 +73,10 @@ export function installTvInputDebug() {
       "tus sayisi: " + keyCount + "  |  son tus: " + lastKey,
       "platform: " + String(globalThis.__NUVIO_PLATFORM__ || "(otomatik)") +
         "  |  " + String(globalThis.innerWidth) + "x" + String(globalThis.innerHeight),
+      "runtime: Worker=" + (typeof globalThis.Worker === "function" ? "var" : "YOK") +
+        "  WebAssembly=" + (typeof globalThis.WebAssembly === "object" ? "var" : "YOK") +
+        "  fetch=" + (typeof globalThis.fetch === "function" ? "var" : "YOK") +
+        "  eklenti=" + (globalThis.__NUVIO_ALLOW_BROWSER_PLUGIN_RUNTIME__ === true ? "acik" : "kapali"),
       "UA: " + ua.slice(0, 220)
     ];
     if (errors.length) {

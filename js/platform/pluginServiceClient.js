@@ -253,12 +253,33 @@ async function directBrowserFetch(request) {
     const methodHasBody =
       ["POST", "PUT", "PATCH"].includes(validation.method) ||
       (validation.method === "DELETE" && validation.bodyKind !== "none");
-    const response = await fetch(validation.url, {
+    const requestOptions = {
       method: validation.method,
       headers: normalizePluginHeaders(validation.headers),
       body: methodHasBody ? requestBody : undefined,
       signal: controller?.signal || request.signal
-    });
+    };
+    let response;
+    try {
+      response = await fetch(validation.url, requestOptions);
+    } catch (directError) {
+      // Browser CORS blocks many provider sites. When an operator configures a
+      // forwarding proxy (`__NUVIO_PLUGIN_HTTP_PROXY__`, either a prefix or a
+      // template containing %s) retry safe GET/HEAD requests through it.
+      const proxy = String(globalThis.__NUVIO_PLUGIN_HTTP_PROXY__ || "").trim();
+      const retryable = validation.method === "GET" || validation.method === "HEAD";
+      if (!proxy || !retryable) {
+        throw directError;
+      }
+      const proxiedUrl = proxy.includes("%s")
+        ? proxy.replace("%s", encodeURIComponent(validation.url))
+        : proxy + encodeURIComponent(validation.url);
+      response = await fetch(proxiedUrl, {
+        method: "GET",
+        headers: requestOptions.headers,
+        signal: controller?.signal || request.signal
+      });
+    }
     const binaryResponse =
       request.responseEncoding === "base64" ? await response.clone().arrayBuffer() : null;
     const body = await response.text();
@@ -305,12 +326,27 @@ export const PluginServiceClient = {
     if (!force && cachedHealth && now - cachedHealthAt < HEALTH_TTL_MS) return cachedHealth;
     const service = serviceForPlatform();
     if (!service) {
-      cachedHealth = {
-        returnValue: globalThis.__NUVIO_ALLOW_BROWSER_PLUGIN_RUNTIME__ === true,
-        status:
-          globalThis.__NUVIO_ALLOW_BROWSER_PLUGIN_RUNTIME__ === true ? "browser" : "unsupported",
-        detail: "No packaged TV plugin service"
-      };
+      const browserRuntimeAllowed = globalThis.__NUVIO_ALLOW_BROWSER_PLUGIN_RUNTIME__ === true;
+      cachedHealth = browserRuntimeAllowed
+        ? {
+            returnValue: true,
+            status: "browser",
+            detail: "Browser plugin runtime (main-thread fetch bridge)",
+            protocolVersion: PLUGIN_PROTOCOL_VERSION,
+            serviceVersion: 1,
+            runtimeVersion: "browser",
+            quickjsVersion: "wasm",
+            workerSupport: true,
+            maxConcurrency: 4,
+            memoryTier: "limited",
+            jsPluginCapability: true,
+            networkBoundary: true
+          }
+        : {
+            returnValue: false,
+            status: "unsupported",
+            detail: "No packaged TV plugin service"
+          };
       cachedHealthAt = now;
       return cachedHealth;
     }
