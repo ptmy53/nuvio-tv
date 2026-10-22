@@ -64,8 +64,24 @@ export const FocusEngine = {
     this.boundHandleKeyUp = this.handleKeyUp.bind(this);
     this.boundHandlePointerMove = this.handlePointerMove.bind(this);
     this.boundHandlePointerClick = this.handlePointerClick.bind(this);
-    document.addEventListener("keydown", this.boundHandleKey, true);
-    document.addEventListener("keyup", this.boundHandleKeyUp, true);
+    // Some TV browsers (Foxxum/Opera TV, older WebKit shells) dispatch remote
+    // key events directly on `window` instead of `document`. Listening on
+    // window with capture covers both cases; the marker below prevents the
+    // same event from being handled twice when it also bubbles to document.
+    const keyTarget = typeof globalThis.addEventListener === "function" ? globalThis : document;
+    keyTarget.addEventListener("keydown", this.boundHandleKey, true);
+    keyTarget.addEventListener("keyup", this.boundHandleKeyUp, true);
+    if (keyTarget !== document) {
+      document.addEventListener("keydown", this.boundHandleKey, true);
+      document.addEventListener("keyup", this.boundHandleKeyUp, true);
+    }
+    this.focusDocument();
+    globalThis.addEventListener?.("focus", () => this.focusDocument());
+    document.addEventListener?.("visibilitychange", () => {
+      if (!document.hidden) {
+        this.focusDocument();
+      }
+    });
     if (Platform.isWebOS()) {
       document.addEventListener("mousemove", this.boundHandlePointerMove, true);
       document.addEventListener("pointermove", this.boundHandlePointerMove, true);
@@ -73,6 +89,42 @@ export const FocusEngine = {
       document.documentElement?.classList?.add("webos-pointer-remote");
       document.body?.classList?.add("webos-pointer-remote");
     }
+  },
+
+  focusDocument() {
+    try {
+      const body = document.body;
+      if (!body) {
+        return;
+      }
+      if (body.tabIndex !== -1) {
+        body.tabIndex = -1;
+      }
+      const active = document.activeElement;
+      if (!active || active === body || active === document.documentElement) {
+        body.focus?.();
+      }
+      if (typeof globalThis.focus === "function") {
+        globalThis.focus();
+      }
+    } catch (_) {
+      // Focus juggling is best effort only.
+    }
+  },
+
+  isDuplicateKeyEvent(event) {
+    if (!event) {
+      return false;
+    }
+    if (event.__nuvioKeyHandled) {
+      return true;
+    }
+    try {
+      event.__nuvioKeyHandled = true;
+    } catch (_) {
+      // Non-extensible event objects simply skip the guard.
+    }
+    return false;
   },
 
   handleBack(event, normalizedEvent = buildNormalizedEvent(event)) {
@@ -114,6 +166,9 @@ export const FocusEngine = {
   },
 
   handleKey(event) {
+    if (this.isDuplicateKeyEvent(event)) {
+      return;
+    }
     if (event?.target && !document.contains(event.target)) {
       return;
     }
@@ -173,6 +228,9 @@ export const FocusEngine = {
   },
 
   handleKeyUp(event) {
+    if (this.isDuplicateKeyEvent(event)) {
+      return;
+    }
     const normalizedEvent = buildNormalizedEvent(event);
     const keyIdentity = this.getKeyIdentity(normalizedEvent);
     if (

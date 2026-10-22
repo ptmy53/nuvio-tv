@@ -9,6 +9,7 @@ import "./core/diagnostics/consoleDebugBuffer.js";
 import { detailWatchedEnrichmentService } from "./data/repository/detailWatchedEnrichmentService.js";
 import { Router } from "./ui/navigation/router.js";
 import { FocusEngine } from "./ui/navigation/focusEngine.js";
+import { installTvInputDebug } from "./ui/navigation/tvInputDebug.js";
 import { PlayerController } from "./core/player/playerController.js";
 import { AuthManager } from "./core/auth/authManager.js";
 import { AuthState } from "./core/auth/authState.js";
@@ -583,6 +584,7 @@ async function bootstrapApp() {
   MediaServerSyncService.start();
   AmbientMode.start();
   FocusEngine.init();
+  installTvInputDebug();
   setupProviderCredentialForegroundLifecycle();
   setupTizenPlaybackLifecycle();
   setupPluginRuntimeLifecycle();

@@ -40,9 +40,16 @@ jobs:
           SIMKL_CLIENT_ID: ${{ secrets.SIMKL_CLIENT_ID }}
           MDBLIST_CLIENT_ID: ${{ secrets.MDBLIST_CLIENT_ID }}
         run: |
+          # Public client configuration of the official Nuvio web app. These
+          # values ship inside the public nuvio.tv bundle, so they are not
+          # secrets; keeping them here makes the deployed site work out of the box.
           cat > local.properties <<EOF
-          TMDB_API_KEY=${TMDB_API_KEY}
-          TRAKT_CLIENT_ID=${TRAKT_CLIENT_ID}
+          NUVIO_SUPABASE_URL=https://api.nuvio.tv
+          NUVIO_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzgxNTIxMzQ2LCJleHAiOjE5MzkyMDEzNDZ9.tmQaj682pwzehpqlgCDMnySOqiUvpgRbrE43T4VJpDI
+          TV_LOGIN_WEB_BASE_URL=https://nuvio.tv/tv-login
+          DEVICE_LOGIN_WEB_BASE_URL=https://nuvio.tv/link
+          TMDB_API_KEY=${TMDB_API_KEY:-01926d2187b6a5d861eefc750e9df3e3}
+          TRAKT_CLIENT_ID=${TRAKT_CLIENT_ID:-5783db7c46a5b22f072d4b224f9bd7dc2cbaba66dbe3515d1feb59e3ca72394c}
           TRAKT_CLIENT_SECRET=${TRAKT_CLIENT_SECRET}
           SIMKL_CLIENT_ID=${SIMKL_CLIENT_ID}
           SIMKL_APP_NAME=nuvio
