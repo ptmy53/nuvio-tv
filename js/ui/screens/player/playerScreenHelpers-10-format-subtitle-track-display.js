@@ -322,7 +322,13 @@ export function directPlaybackUrl(value = "") {
 }
 
 export function streamDirectPlaybackUrl(stream = {}) {
-  return directPlaybackUrl(stream?.url) || directPlaybackUrl(stream?.externalUrl);
+  const source = directPlaybackUrl(stream?.url) || directPlaybackUrl(stream?.externalUrl);
+  if (!source) return "";
+  const proxy = String(globalThis.__NUVIO_STREAM_PROXY__ || "").trim();
+  if (!proxy || !/^https?:\/\//i.test(source) || /^magnet:/i.test(source)) return source;
+  return proxy.includes("%s")
+    ? proxy.replace("%s", encodeURIComponent(source))
+    : `${proxy}${proxy.includes("?") ? "&" : "?"}url=${encodeURIComponent(source)}`;
 }
 
 export function streamDebridIdentity(item = {}) {
