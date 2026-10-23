@@ -121,6 +121,12 @@ export const Platform = {
     return this.getName() === "browser";
   },
 
+  isLegacyFoxxum() {
+    if (!this.isBrowser()) return false;
+    const ua = String(globalThis.navigator?.userAgent || "").toLowerCase();
+    return /vewd|foxxum|vestel|opera tv|smarttv|hbbtv/.test(ua);
+  },
+
   exitApp() {
     if (globalThis.document && typeof globalThis.CustomEvent === "function") {
       const beforeExitEvent = new CustomEvent("nuvio:beforeExitApp", {

@@ -40,6 +40,7 @@ export function createPlayerScreenMethods01() {
       this.container = document.getElementById("player");
       this.container.style.display = "block";
       this.container.classList.toggle("player-platform-webos", Environment.isWebOS());
+      this.container.classList.toggle("player-platform-foxxum", Environment.isLegacyFoxxum?.() === true);
       const mountToken = Number(this.playerMountToken || 0) + 1;
       this.playerMountToken = mountToken;
       this.shuffleNextCache = null;

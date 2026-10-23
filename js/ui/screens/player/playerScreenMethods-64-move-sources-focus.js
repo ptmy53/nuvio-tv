@@ -230,17 +230,18 @@ export function createPlayerScreenMethods64() {
       if (video) {
         const rect = this.calculateAspectRect(mode.id, video);
         const usingTizenAvPlay = Boolean(Environment.isTizen() && PlayerController.isUsingAvPlay?.());
+        const usingLegacyFoxxum = Environment.isLegacyFoxxum?.() === true;
         const canTransformVideo = !Environment.isWebOS() && !usingTizenAvPlay;
         const videoRect = usingTizenAvPlay ? rect.displayRect : rect;
         video.style.position = "fixed";
-        if (Environment.isWebOS()) {
+        if (Environment.isWebOS() || usingLegacyFoxxum) {
           // webOS suppresses its screensaver only when the video element itself
           // occupies the full viewport. Keep aspect handling inside that element.
           video.style.left = "0px";
           video.style.top = "0px";
           video.style.width = "100vw";
           video.style.height = "100vh";
-          video.style.objectFit = mode.objectFit;
+          video.style.objectFit = usingLegacyFoxxum ? "contain" : mode.objectFit;
         } else {
           video.style.left = `${Math.round(videoRect.x)}px`;
           video.style.top = `${Math.round(videoRect.y)}px`;

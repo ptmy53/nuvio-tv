@@ -42,7 +42,18 @@ export function createPlayerScreenMethods18() {
         ...(Object.keys(requestHeaders).length ? { requestHeaders } : {})
       };
       saveReusableStreamLink(this, sourceCandidate || this.getCurrentStreamCandidate(), { url: playbackUrl, headers: requestHeaders });
-      PlayerController.setStartupPresentationAudioMuted?.(true);
+       // Old Vewd/Foxxum browsers delay the first audio frame when the
+       // presentation mute is applied before native playback starts. They do
+       // not need the modern autoplay gate because remote activation already
+       // supplies a user gesture.
+       const legacyFoxxum = /vewd|foxxum|vestel|opera tv|smarttv|hbbtv/i.test(
+         String(globalThis.navigator?.userAgent || "")
+       );
+       if (!legacyFoxxum) {
+         PlayerController.setStartupPresentationAudioMuted?.(true);
+       } else {
+         PlayerController.setStartupPresentationAudioMuted?.(false);
+       }
       return Promise.resolve(PlayerController.play(playbackUrl, playbackContext)).catch((error) => {
         if (!this.isActiveMountToken(mountToken) || this.isExternalFrameMode()) {
           return;

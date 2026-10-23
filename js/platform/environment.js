@@ -13,6 +13,10 @@ export const Environment = {
     return Platform.isBrowser();
   },
 
+  isLegacyFoxxum() {
+    return Platform.isLegacyFoxxum();
+  },
+
   isBackEvent(event) {
     return Platform.isBackEvent(event);
   },

@@ -153,6 +153,24 @@
   background: transparent !important;
 }
 
+/* Vewd/Foxxum reports a smaller layout viewport than the physical TV panel.
+   Keep the media surface and player controls on the real viewport. */
+.player-platform-foxxum,
+.player-platform-foxxum #playerUiRoot,
+.player-platform-foxxum #videoPlayer {
+  width: 100vw !important;
+  height: 100vh !important;
+  max-width: 100vw !important;
+  max-height: 100vh !important;
+}
+
+.player-platform-foxxum #videoPlayer {
+  position: fixed !important;
+  inset: 0 !important;
+  object-fit: contain !important;
+  transform: none !important;
+}
+
 #playerUiRoot {
   --player-secondary: var(--secondary-color);
   --player-on-secondary: var(--on-secondary);
