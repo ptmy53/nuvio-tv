@@ -92,6 +92,16 @@ body {
   height: 1080px;
 }
 
+/* Some Vestel/Vewd firmware reports a 1280x720 CSS viewport while the panel
+   is 3840x2160. Restore the 1920x1080 logical canvas without affecting normal
+   desktop browsers or native TV packages. */
+.foxxum-tv #app,
+.foxxum-tv .screen {
+  width: var(--foxxum-logical-width, 100vw);
+  height: var(--foxxum-logical-height, 100vh);
+  zoom: var(--foxxum-viewport-scale, 1);
+}
+
 .row {
   margin: 40px;
 }

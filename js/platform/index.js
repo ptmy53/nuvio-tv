@@ -127,6 +127,28 @@ export const Platform = {
     return /vewd|foxxum|vestel|opera tv|smarttv|hbbtv/.test(ua);
   },
 
+  applyLegacyFoxxumViewportScale() {
+    if (!this.isLegacyFoxxum() || !globalThis.document?.documentElement) return 1;
+    const cssWidth = Number(globalThis.innerWidth || 0);
+    const cssHeight = Number(globalThis.innerHeight || 0);
+    const screenWidth = Number(globalThis.screen?.width || 0);
+    const screenHeight = Number(globalThis.screen?.height || 0);
+    if (!(cssWidth > 0 && cssHeight > 0 && screenWidth > 0 && screenHeight > 0)) return 1;
+    const widthRatio = screenWidth / cssWidth;
+    const heightRatio = screenHeight / cssHeight;
+    // Vewd can expose a 1280x720 CSS viewport for a 3840x2160 panel. The app
+    // is designed around a 1920x1080 TV canvas, so compensate only when the
+    // physical-to-CSS ratio clearly indicates a scaled legacy TV viewport.
+    if (screenWidth < 3000 || widthRatio < 1.5 || heightRatio < 1.5) return 1;
+    const scale = Math.max(0.5, Math.min(1, 2 / Math.max(widthRatio, heightRatio)));
+    const root = globalThis.document.documentElement;
+    root.classList.add("foxxum-tv");
+    root.style.setProperty("--foxxum-viewport-scale", String(scale));
+    root.style.setProperty("--foxxum-logical-width", `${Math.ceil(cssWidth / scale)}px`);
+    root.style.setProperty("--foxxum-logical-height", `${Math.ceil(cssHeight / scale)}px`);
+    return scale;
+  },
+
   exitApp() {
     if (globalThis.document && typeof globalThis.CustomEvent === "function") {
       const beforeExitEvent = new CustomEvent("nuvio:beforeExitApp", {

@@ -557,6 +557,7 @@ async function bootstrapApp() {
   appShellRendered = true;
   markBootStage("Initializing TV platform");
   Platform.init();
+  Platform.applyLegacyFoxxumViewportScale?.();
   setupPluginServiceLifecycle();
   if (shouldDisableTizenPluginSupport()) {
     markBootStage("PluginService disabled on Tizen below 6.0");

@@ -86,6 +86,8 @@ export function installTvInputDebug() {
       "tus sayisi: " + keyCount + "  |  son tus: " + lastKey,
       "platform: " + String(globalThis.__NUVIO_PLATFORM__ || "(otomatik)") +
         "  |  " + String(globalThis.innerWidth) + "x" + String(globalThis.innerHeight),
+      "screen: " + String(globalThis.screen?.width || 0) + "x" + String(globalThis.screen?.height || 0) +
+        "  dpr=" + String(globalThis.devicePixelRatio || 1),
       "runtime: Worker=" + (typeof globalThis.Worker === "function" ? "var" : "YOK") +
         "  WebAssembly=" + (typeof globalThis.WebAssembly === "object" ? "var" : "YOK") +
         "  fetch=" + (typeof globalThis.fetch === "function" ? "var" : "YOK"),
