@@ -38,6 +38,23 @@ export const PLUGIN_QUOTAS = Object.freeze({
     maxDocuments: 2,
     maxDomElements: 6000,
     memoryLimitBytes: 32 * 1024 * 1024
+  }),
+  // Foxxum/Vewd TVs expose Worker + WebAssembly but have a much older
+  // browser/network stack than desktop browsers. Two bounded workers avoid
+  // making a provider search appear to contain only its first result.
+  foxxum: Object.freeze({
+    maxConcurrent: 2,
+    maxManifestBytes: 128 * 1024,
+    maxCodeBytes: 1024 * 1024,
+    maxCacheBytes: 8 * 1024 * 1024,
+    maxFetchBytes: 512 * 1024,
+    maxResultsPerScraper: 25,
+    maxResults: 100,
+    providerTimeoutMs: 12000,
+    globalTimeoutMs: 90000,
+    maxDocuments: 2,
+    maxDomElements: 6000,
+    memoryLimitBytes: 32 * 1024 * 1024
   })
 });
 
@@ -191,8 +208,9 @@ export function getPluginCapabilitySnapshot() {
   }
 
   const browserRuntime = platform === "browser";
+  const browserQuota = browserRuntime && Platform.isLegacyFoxxum?.() ? PLUGIN_QUOTAS.foxxum : PLUGIN_QUOTAS.limited;
   return {
-    ...snapshotFields(platform, browserRuntime ? PLUGIN_QUOTAS.limited : PLUGIN_QUOTAS.modern, {
+    ...snapshotFields(platform, browserRuntime ? browserQuota : PLUGIN_QUOTAS.modern, {
       appSupported: browserRuntime,
       normalAddonsSupported: browserRuntime,
       candidate: true,

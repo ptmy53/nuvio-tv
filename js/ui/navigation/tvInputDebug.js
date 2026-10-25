@@ -67,6 +67,7 @@ export function installTvInputDebug() {
   let keyCount = 0;
   let lastKey = "(henuz tus gelmedi)";
   const errors = [];
+  let runtimeProbeStarted = false;
 
   const render = () => {
     const ua = String(globalThis.navigator?.userAgent || "");
@@ -96,6 +97,19 @@ export function installTvInputDebug() {
     }
     panel.textContent = lines.join("\n");
   };
+
+  // A capability snapshot starts as "unknown" until the QuickJS/Worker
+  // handshake is probed. Run it from the diagnostic page so a TV screenshot
+  // reports the real result instead of an uninitialized state.
+  if (!runtimeProbeStarted) {
+    runtimeProbeStarted = true;
+    Promise.resolve(PluginManager.getRuntimeStatus({ probe: true }))
+      .then(() => render())
+      .catch((error) => {
+        errors.push(String(error?.message || error || "plugin runtime probe failed"));
+        render();
+      });
+  }
 
   const onKey = (event) => {
     keyCount += 1;
