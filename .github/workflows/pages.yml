@@ -1,21 +1,24 @@
 name: Build and deploy to GitHub Pages
 
+# GitHub Pages is configured with build_type=legacy (source branch: gh-pages).
+# The workflow therefore builds dist/ and force-pushes it to the gh-pages
+# branch instead of using the artifact-based actions/deploy-pages flow. This
+# keeps deploys working even when the Pages artifact pipeline is slow and lets
+# the same build be published manually with scripts/deploy-pages.ps1.
 on:
   push:
     branches: [main]
   workflow_dispatch:
 
 permissions:
-  contents: read
-  pages: write
-  id-token: write
+  contents: write
 
 concurrency:
   group: github-pages
   cancel-in-progress: true
 
 jobs:
-  build:
+  build-and-deploy:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -39,6 +42,8 @@ jobs:
           TRAKT_CLIENT_SECRET: ${{ secrets.TRAKT_CLIENT_SECRET }}
           SIMKL_CLIENT_ID: ${{ secrets.SIMKL_CLIENT_ID }}
           MDBLIST_CLIENT_ID: ${{ secrets.MDBLIST_CLIENT_ID }}
+          NUVIO_PLUGIN_HTTP_PROXY: ${{ secrets.NUVIO_PLUGIN_HTTP_PROXY }}
+          NUVIO_STREAM_PROXY: ${{ secrets.NUVIO_STREAM_PROXY }}
         run: |
           # Public client configuration of the official Nuvio web app. These
           # values ship inside the public nuvio.tv bundle, so they are not
@@ -48,6 +53,8 @@ jobs:
           NUVIO_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzgxNTIxMzQ2LCJleHAiOjE5MzkyMDEzNDZ9.tmQaj682pwzehpqlgCDMnySOqiUvpgRbrE43T4VJpDI
           TV_LOGIN_WEB_BASE_URL=https://nuvio.tv/tv-login
           DEVICE_LOGIN_WEB_BASE_URL=https://nuvio.tv/link
+          NUVIO_PLUGIN_HTTP_PROXY=${NUVIO_PLUGIN_HTTP_PROXY}
+          NUVIO_STREAM_PROXY=${NUVIO_STREAM_PROXY}
           TMDB_API_KEY=${TMDB_API_KEY:-01926d2187b6a5d861eefc750e9df3e3}
           TRAKT_CLIENT_ID=${TRAKT_CLIENT_ID:-5783db7c46a5b22f072d4b224f9bd7dc2cbaba66dbe3515d1feb59e3ca72394c}
           TRAKT_CLIENT_SECRET=${TRAKT_CLIENT_SECRET}
@@ -85,18 +92,13 @@ jobs:
           EOF
           touch dist/.nojekyll
 
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: dist
-
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - name: Deploy
-        id: deployment
-        uses: actions/deploy-pages@v4
+      - name: Publish to gh-pages
+        run: |
+          cd dist
+          git init -q
+          git checkout -q -b gh-pages
+          git add -A
+          git -c user.name="github-actions[bot]" \
+              -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+              commit -q -m "deploy ${GITHUB_SHA::8}"
+          git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" gh-pages
