@@ -1869,6 +1869,9 @@
     <string name="plugin_suggested_repo_filled">Suggested repository address filled in. Press Add to install it.</string>
     <string name="plugin_cleanup_anime">Disable anime and GramCinema providers</string>
     <string name="plugin_cleanup_anime_done">Disabled %1$d anime/GramCinema providers.</string>
+    <string name="plugin_cleanup_failing">Disable providers that keep failing</string>
+    <string name="plugin_cleanup_failing_done">Disabled %1$d providers that kept failing.</string>
+    <string name="plugin_cleanup_failing_none">Nothing to clean up yet — open a title a few times so failing providers can be identified.</string>
     <string name="plugin_manage_from_phone_title">Manage from phone</string>
     <string name="plugin_manage_from_phone_subtitle">Scan a QR code to add or remove repositories from your phone</string>
     <string name="plugin_qr_instruction">Scan with your phone to manage repositories</string>

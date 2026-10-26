@@ -46,10 +46,11 @@ const recentScraperErrors = [];
 // localStorage because plugin state sync would otherwise spread device-specific
 // network results to every other client.
 const PROVIDER_SCORE_KEY = "nuvio.plugin.providerScore.v1";
+const PROVIDER_FAIL_KEY = "nuvio.plugin.providerFails.v1";
 
-function loadProviderScores() {
+function readStore(key) {
   try {
-    const raw = globalThis.localStorage?.getItem(PROVIDER_SCORE_KEY);
+    const raw = globalThis.localStorage?.getItem(key);
     const parsed = raw ? JSON.parse(raw) : null;
     return parsed && typeof parsed === "object" ? parsed : {};
   } catch (_) {
@@ -57,12 +58,28 @@ function loadProviderScores() {
   }
 }
 
-function saveProviderScores(scores) {
+function writeStore(key, value) {
   try {
-    globalThis.localStorage?.setItem(PROVIDER_SCORE_KEY, JSON.stringify(scores));
+    globalThis.localStorage?.setItem(key, JSON.stringify(value));
   } catch (_) {
     // private mode / quota exceeded: ranking simply stays in-memory
   }
+}
+
+function loadProviderScores() {
+  return readStore(PROVIDER_SCORE_KEY);
+}
+
+function saveProviderScores(scores) {
+  writeStore(PROVIDER_SCORE_KEY, scores);
+}
+
+function loadProviderFails() {
+  return readStore(PROVIDER_FAIL_KEY);
+}
+
+function saveProviderFails(fails) {
+  writeStore(PROVIDER_FAIL_KEY, fails);
 }
 
 function rankScrapers(eligible, cap) {
@@ -1658,6 +1675,41 @@ export const PluginManager = {
     return true;
   },
 
+  // Disable providers this device has repeatedly failed to get results from.
+  // Evidence comes from the same local counters the fan-out ranking uses, so a
+  // provider that ever produced a stream keeps its enabled state.
+  pruneFailingProviders({ minFails = 3 } = {}) {
+    if (!canEdit()) return { disabled: 0, readOnly: true };
+    const fails = loadProviderFails();
+    const scores = loadProviderScores();
+    const state = currentState();
+    const failing = new Set();
+    for (const scraper of state.scrapers) {
+      if (scraper.enabled === false) continue;
+      if (Number(fails[scraper.id] || 0) >= minFails && Number(scores[scraper.id] || 0) <= 0) {
+        failing.add(scraper.id);
+      }
+    }
+    if (!failing.size) return { disabled: 0 };
+    PluginStore.replace({
+      ...state,
+      scrapers: state.scrapers.map((entry) =>
+        failing.has(entry.id) ? { ...entry, enabled: false } : entry
+      ),
+      syncDirty: state.syncDirty
+    });
+    return { disabled: failing.size };
+  },
+
+  getProviderReliability() {
+    const scores = loadProviderScores();
+    const fails = loadProviderFails();
+    return {
+      knownGood: Object.values(scores).filter((value) => Number(value) > 0).length,
+      failing: Object.values(fails).filter((value) => Number(value) >= 3).length
+    };
+  },
+
   setAllScrapersEnabled(repositoryId, enabled) {
     if (!canEdit()) return false;
     const state = currentState();
@@ -2113,6 +2165,7 @@ export const PluginManager = {
     // them in the first slots instead of cycling blindly.
     try {
       const scores = loadProviderScores();
+      const fails = loadProviderFails();
       for (const group of completedGroups) {
         const id = group?.scraper?.id;
         if (!id) continue;
@@ -2120,8 +2173,11 @@ export const PluginManager = {
         const next = Number(scores[id] || 0) + (produced ? 2 : -1);
         if (next > 0) scores[id] = Math.min(20, next);
         else delete scores[id];
+        if (produced) delete fails[id];
+        else fails[id] = Math.min(20, Number(fails[id] || 0) + 1);
       }
       saveProviderScores(scores);
+      saveProviderFails(fails);
     } catch (_) {
       // scoring is best effort
     }

@@ -302,6 +302,15 @@ export const PluginsScreen = {
                       disabled: this.busy
                     })}
                   </div>
+                  <div class="plugins-add-row plugins-add-suggested-row">
+                    ${button({
+                      focusKey: "cleanup:failing",
+                      action: "prune-failing-providers",
+                      label: t("plugin_cleanup_failing", {}, "Disable providers that keep failing"),
+                      icon: "delete_sweep",
+                      disabled: this.busy
+                    })}
+                  </div>
                   ${this.statusMessage && !["success", "error"].includes(this.statusKind) ? `<p class="plugins-status-message">${escapeHtml(this.statusMessage)}</p>` : ""}
                 </section>`
                 }
@@ -517,6 +526,25 @@ export const PluginsScreen = {
       this.setStatus(
         t("plugin_cleanup_anime_done", { count: changed }, `Disabled ${changed} anime/GramCinema providers.`),
         "success"
+      );
+      this.render();
+      return;
+    }
+    if (action === "prune-failing-providers") {
+      const result = PluginManager.pruneFailingProviders({ minFails: 3 });
+      this.setStatus(
+        result.disabled
+          ? t(
+              "plugin_cleanup_failing_done",
+              { count: result.disabled },
+              `Disabled ${result.disabled} providers that kept failing.`
+            )
+          : t(
+              "plugin_cleanup_failing_none",
+              {},
+              "Nothing to clean up yet — open a title a few times so failing providers can be identified."
+            ),
+        result.disabled ? "success" : undefined
       );
       this.render();
       return;

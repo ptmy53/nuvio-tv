@@ -1553,6 +1553,9 @@
     <string name="plugin_suggested_repo_filled">Önerilen depo adresi dolduruldu. Kurmak için Ekle\'ye basın.</string>
     <string name="plugin_cleanup_anime">Anime ve GramCinema sağlayıcılarını kapat</string>
     <string name="plugin_cleanup_anime_done">%1$d anime/GramCinema sağlayıcısı kapatıldı.</string>
+    <string name="plugin_cleanup_failing">Sürekli başarısız olan sağlayıcıları kapat</string>
+    <string name="plugin_cleanup_failing_done">%1$d başarısız sağlayıcı kapatıldı.</string>
+    <string name="plugin_cleanup_failing_none">Temizlenecek bir şey yok — önce bir filmi birkaç kez açın, başarısız sağlayıcılar belirlensin.</string>
     <string name="plugin_manage_from_phone_title">Telefondan Yönet</string>
     <string name="plugin_manage_from_phone_subtitle">Yeni bir uzantı deposu eklemek ya da silmek için telefondan kodu tarayın</string>
     <string name="plugin_qr_instruction">Depoları yönetmek için bu adresi açıp kontrol edin</string>
