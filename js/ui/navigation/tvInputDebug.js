@@ -68,6 +68,7 @@ export function installTvInputDebug() {
   let lastKey = "(henuz tus gelmedi)";
   const errors = [];
   let runtimeProbeStarted = false;
+  let versionNote = "";
 
   const render = () => {
     const ua = String(globalThis.navigator?.userAgent || "");
@@ -137,12 +138,59 @@ export function installTvInputDebug() {
         (globalThis.__NUVIO_ENV__ && globalThis.__NUVIO_ENV__.NUVIO_PLUGIN_HTTP_PROXY ? "var" : "yok"),
       streamLine,
       fetchLine,
+      versionNote,
       "UA: " + ua.slice(0, 220)
     ];
     if (errors.length) {
       lines.push("HATA: " + errors[errors.length - 1].slice(0, 260));
     }
     panel.textContent = lines.join("\n");
+  };
+
+  // TVs and desktop browsers cache index.html and its assets for minutes, so a
+  // debug screenshot can describe an older deploy than the one just published.
+  // In debug mode compare the loaded bundle against version.json and move to
+  // the fresh build once, keeping ?tvdebug=1 so the overlay stays visible.
+  const checkPublishedVersion = () => {
+    let loadedVersion = "";
+    try {
+      const script = Array.from(document.scripts).find((entry) =>
+        String(entry.src || "").includes("app.bundle.js")
+      );
+      if (script) loadedVersion = new URL(script.src, location.href).searchParams.get("v") || "";
+    } catch (_) {
+      loadedVersion = "";
+    }
+    try {
+      fetch("version.json?_=" + Date.now(), { cache: "no-store" })
+        .then((response) => (response.ok ? response.json() : null))
+        .then((info) => {
+          const latest = String(info?.version || "").trim();
+          if (!latest) return;
+          if (!loadedVersion || latest === loadedVersion) {
+            versionNote = "surum: " + (loadedVersion || "?") + " (guncel)";
+            render();
+            return;
+          }
+          versionNote = "surum: " + loadedVersion + " -> " + latest;
+          render();
+          const flag = "nuvio.debug.reloaded." + latest;
+          try {
+            if (!sessionStorage.getItem(flag)) {
+              sessionStorage.setItem(flag, "1");
+              const next = new URL(location.href);
+              next.searchParams.set("v", latest);
+              next.searchParams.set("t", String(Date.now()));
+              location.replace(next.toString());
+            }
+          } catch (_) {
+            // storage blocked: keep running the loaded build
+          }
+        })
+        .catch(() => {});
+    } catch (_) {
+      // ignore
+    }
   };
 
   // A capability snapshot starts as "unknown" until the QuickJS/Worker
@@ -157,6 +205,8 @@ export function installTvInputDebug() {
         render();
       });
   }
+
+  checkPublishedVersion();
 
   const onKey = (event) => {
     keyCount += 1;

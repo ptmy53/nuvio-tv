@@ -95,6 +95,9 @@ jobs:
           <p><a href="$BASE">Nuvio TV</a></p>
           EOF
           touch dist/.nojekyll
+          # Published version marker used by the debug overlay to move stale
+          # TV/browser caches onto the current build.
+          printf '{"version":"%s","builtAt":"%s"}\n' "${GITHUB_SHA::8}" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > dist/version.json
 
       - name: Publish to gh-pages
         run: |

@@ -40,6 +40,10 @@ $notFound = @"
 "@
 Set-Content -Path (Join-Path $repoRoot "dist\404.html") -Value $notFound
 New-Item -ItemType File -Force -Path (Join-Path $repoRoot "dist\.nojekyll") | Out-Null
+# Published version marker: the debug overlay compares it with the loaded
+# bundle and reloads stale TV/browser caches onto the current build.
+$versionJson = "{`"version`":`"$sha`",`"builtAt`":`"$([DateTime]::UtcNow.ToString('o'))`"}"
+Set-Content -Path (Join-Path $repoRoot "dist\version.json") -Value $versionJson -NoNewline
 
 Push-Location (Join-Path $repoRoot "dist")
 try {
