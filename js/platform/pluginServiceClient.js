@@ -14,6 +14,32 @@ import {
 
 let cachedHealth = null;
 let cachedHealthAt = 0;
+
+// Per-status tally of upstream fetches performed for the running scraper batch.
+// Without it a provider that is blocked (403/451) looks exactly like a provider
+// that simply has no results, which hides whether the TV, the network or the
+// site is the problem.
+const fetchStatusTally = new Map();
+
+function recordFetchStatus(status, proxied = false) {
+  const normalized = Math.max(0, Number(status) || 0);
+  const key = `${normalized}:${proxied ? "p" : "d"}`;
+  fetchStatusTally.set(key, (fetchStatusTally.get(key) || 0) + 1);
+}
+
+export function resetPluginFetchStats() {
+  fetchStatusTally.clear();
+}
+
+export function getPluginFetchStats() {
+  return Array.from(fetchStatusTally.entries())
+    .map(([key, count]) => {
+      const [statusText, mode] = String(key).split(":");
+      return { status: Number(statusText) || 0, proxied: mode === "p", count };
+    })
+    .sort((left, right) => right.count - left.count);
+}
+
 const HEALTH_TTL_MS = 30000;
 const SERVICE_WATCHDOG_INTERVAL_MS = 10000;
 const WATCHDOG_FAILURE_THRESHOLD = 2;
@@ -260,6 +286,7 @@ async function directBrowserFetch(request) {
       signal: controller?.signal || request.signal
     };
     let response;
+    let proxied = false;
     try {
       response = await fetch(validation.url, requestOptions);
     } catch (directError) {
@@ -269,17 +296,20 @@ async function directBrowserFetch(request) {
       const proxy = String(globalThis.__NUVIO_PLUGIN_HTTP_PROXY__ || "").trim();
       const retryable = validation.method === "GET" || validation.method === "HEAD";
       if (!proxy || !retryable) {
+        recordFetchStatus(0, false);
         throw directError;
       }
       const proxiedUrl = proxy.includes("%s")
         ? proxy.replace("%s", encodeURIComponent(validation.url))
         : proxy + encodeURIComponent(validation.url);
+      proxied = true;
       response = await fetch(proxiedUrl, {
         method: "GET",
         headers: requestOptions.headers,
         signal: controller?.signal || request.signal
       });
     }
+    recordFetchStatus(response.status, proxied);
     const binaryResponse =
       request.responseEncoding === "base64" ? await response.clone().arrayBuffer() : null;
     const body = await response.text();
@@ -305,6 +335,11 @@ async function directBrowserFetch(request) {
       },
       validation.url
     );
+  } catch (error) {
+    // Network errors, aborts and CORS failures never produce a status; count
+    // them so the tally distinguishes "blocked" from "unreachable".
+    recordFetchStatus(0, false);
+    throw error;
   } finally {
     clearTimeout(timer);
     request.signal?.removeEventListener?.("abort", abort);

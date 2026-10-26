@@ -2,7 +2,7 @@ import { PluginStore, getEffectivePluginProfileId } from "../../data/local/plugi
 import { PluginCodeStore } from "../../data/local/pluginCodeStore.js";
 import { PluginRuntime } from "./pluginRuntime.js";
 import { PluginExecutionFlight } from "./pluginExecutionFlight.js";
-import { PluginServiceClient } from "../../platform/pluginServiceClient.js";
+import { PluginServiceClient, getPluginFetchStats, resetPluginFetchStats } from "../../platform/pluginServiceClient.js";
 import { Platform } from "../../platform/index.js";
 import { getPluginCapabilitySnapshot } from "./pluginPolicy.js";
 import {
@@ -2015,6 +2015,7 @@ export const PluginManager = {
     };
     const eligible = executableScrapersForMediaType(state, mediaType);
     if (!eligible.length) return [];
+    resetPluginFetchStats();
     // Weak TV devices (Foxxum) cannot drain a 60+ scraper repository within a
     // watchable window: with two workers every provider after the first few
     // queues minutes behind and the global budget aborts them. Cap each run to
@@ -2091,7 +2092,8 @@ export const PluginManager = {
       tmdbId: String(args.tmdbId || ""),
       lastError: recentScraperErrors.length
         ? recentScraperErrors[recentScraperErrors.length - 1]
-        : null
+        : null,
+      statusSummary: getPluginFetchStats().slice(0, 5)
     };
     if (signal?.aborted) return [];
 

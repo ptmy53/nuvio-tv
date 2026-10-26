@@ -95,6 +95,7 @@ export function installTvInputDebug() {
       // ignore
     }
     let streamLine = "";
+    let fetchLine = "";
     try {
       const report = PluginManager.getLastStreamRunReport?.();
       if (report) {
@@ -103,6 +104,13 @@ export function installTvInputDebug() {
           "  (" + Math.max(0, Math.round(report.durationMs / 1000)) + " sn, " + report.streamCount + " akis)";
         if (report.lastError) {
           streamLine += "  |  son hata: " + String(report.lastError).slice(0, 90);
+        }
+        if (Array.isArray(report.statusSummary) && report.statusSummary.length) {
+          fetchLine =
+            "kaynak: " +
+            report.statusSummary
+              .map((entry) => `${entry.status === 0 ? "ag-hata" : entry.status}${entry.proxied ? "p" : ""}x${entry.count}`)
+              .join("  ");
         }
       }
     } catch (_) {
@@ -121,6 +129,7 @@ export function installTvInputDebug() {
       pluginLine,
       providerLine,
       streamLine,
+      fetchLine,
       "UA: " + ua.slice(0, 220)
     ];
     if (errors.length) {
