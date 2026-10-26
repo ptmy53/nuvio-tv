@@ -97,6 +97,7 @@ export function installTvInputDebug() {
     }
     let streamLine = "";
     let fetchLine = "";
+    let errorLine = "";
     try {
       const report = PluginManager.getLastStreamRunReport?.();
       if (report) {
@@ -112,6 +113,14 @@ export function installTvInputDebug() {
             "kaynak: " +
             report.statusSummary
               .map((entry) => `${entry.status === 0 ? "ag-hata" : entry.status}${entry.proxied ? "p" : ""}x${entry.count}`)
+              .join("  ");
+        }
+        if (Array.isArray(report.fetchErrors) && report.fetchErrors.length) {
+          errorLine =
+            "hatali: " +
+            report.fetchErrors
+              .slice(0, 3)
+              .map((entry) => `${entry.host}(${entry.mode})x${entry.count}`)
               .join("  ");
         }
       }
@@ -138,6 +147,7 @@ export function installTvInputDebug() {
         (globalThis.__NUVIO_ENV__ && globalThis.__NUVIO_ENV__.NUVIO_PLUGIN_HTTP_PROXY ? "var" : "yok"),
       streamLine,
       fetchLine,
+      errorLine,
       versionNote,
       "UA: " + ua.slice(0, 220)
     ];

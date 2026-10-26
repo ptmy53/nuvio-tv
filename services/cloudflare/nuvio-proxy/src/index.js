@@ -9,11 +9,15 @@ const HEADER_ALLOWLIST = new Set(["user-agent", "referer", "accept", "accept-lan
 const DEFAULT_USER_AGENT =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36";
 
-function corsHeaders() {
+function corsHeaders(request = null) {
+  // Echo the preflight's requested header list so provider-specific headers
+  // (x-api-key, x-requested-with, ...) are not rejected by the browser.
+  const requested = request && request.headers ? request.headers.get("access-control-request-headers") : "";
   return {
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS",
-    "Access-Control-Allow-Headers": "Range, Content-Type, Accept, Origin, Referer",
+    "Access-Control-Allow-Headers":
+      requested && requested.trim() ? requested : "Range, Content-Type, Accept, Origin, Referer",
     "Access-Control-Expose-Headers": "Accept-Ranges, Content-Length, Content-Range, Content-Type, ETag, Last-Modified",
     "Access-Control-Max-Age": "86400"
   };
@@ -92,12 +96,12 @@ function rewriteHlsManifest(text, request, upstreamUrl) {
 
 export default {
   async fetch(request) {
-    if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: corsHeaders() });
-    if (!ALLOWED_METHODS.has(request.method)) return new Response("Method not allowed", { status: 405, headers: corsHeaders() });
+    if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: corsHeaders(request) });
+    if (!ALLOWED_METHODS.has(request.method)) return new Response("Method not allowed", { status: 405, headers: corsHeaders(request) });
 
     const requestUrl = new URL(request.url);
     const target = targetFromRequest(request);
-    if (!target) return new Response("Missing or invalid url", { status: 400, headers: corsHeaders() });
+    if (!target) return new Response("Missing or invalid url", { status: 400, headers: corsHeaders(request) });
 
     const headers = new Headers();
     for (const name of ["accept", "range", "if-none-match", "if-modified-since"]) {
@@ -112,7 +116,7 @@ export default {
 
     try {
       const upstream = await fetch(target, { method: request.method, headers, redirect: "follow" });
-      const responseHeaders = new Headers(corsHeaders());
+      const responseHeaders = new Headers(corsHeaders(request));
       for (const name of ["accept-ranges", "cache-control", "content-length", "content-range", "content-type", "etag", "last-modified"]) {
         const value = upstream.headers.get(name);
         if (value) responseHeaders.set(name, value);
@@ -131,7 +135,7 @@ export default {
         headers: responseHeaders
       });
     } catch (_) {
-      return new Response("Upstream fetch failed", { status: 502, headers: corsHeaders() });
+      return new Response("Upstream fetch failed", { status: 502, headers: corsHeaders(request) });
     }
   }
 };

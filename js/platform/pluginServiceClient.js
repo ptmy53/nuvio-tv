@@ -20,6 +20,7 @@ let cachedHealthAt = 0;
 // that simply has no results, which hides whether the TV, the network or the
 // site is the problem.
 const fetchStatusTally = new Map();
+const fetchErrorTally = new Map();
 
 function recordFetchStatus(status, proxied = false) {
   const normalized = Math.max(0, Number(status) || 0);
@@ -27,8 +28,31 @@ function recordFetchStatus(status, proxied = false) {
   fetchStatusTally.set(key, (fetchStatusTally.get(key) || 0) + 1);
 }
 
+function recordFetchError(targetUrl, mode, error) {
+  try {
+    const host = new URL(String(targetUrl || "")).host || "(bilinmeyen)";
+    const key = `${host}|${mode}`;
+    const previous = fetchErrorTally.get(key);
+    fetchErrorTally.set(key, {
+      host,
+      mode,
+      message: String(error?.message || error?.name || error || "").slice(0, 70),
+      count: (previous?.count || 0) + 1
+    });
+  } catch (_) {
+    // ignore malformed URLs
+  }
+}
+
 export function resetPluginFetchStats() {
   fetchStatusTally.clear();
+  fetchErrorTally.clear();
+}
+
+export function getPluginFetchErrors() {
+  return Array.from(fetchErrorTally.values())
+    .sort((left, right) => right.count - left.count)
+    .slice(0, 5);
 }
 
 export function getPluginFetchStats() {
@@ -301,17 +325,26 @@ async function directBrowserFetch(request) {
       const retryable = validation.method === "GET" || validation.method === "HEAD";
       if (!proxy || !retryable) {
         recordFetchStatus(0, false);
+        recordFetchError(validation.url, "d", directError);
         throw directError;
       }
       const proxiedUrl = proxy.includes("%s")
         ? proxy.replace("%s", encodeURIComponent(validation.url))
         : proxy + encodeURIComponent(validation.url);
       proxied = true;
-      response = await fetch(proxiedUrl, {
-        method: "GET",
-        headers: requestOptions.headers,
-        signal: controller?.signal || request.signal
-      });
+      try {
+        // Deliberately send no provider headers: the forwarding proxy applies
+        // the required User-Agent/Referer itself, and a custom header would
+        // force a CORS preflight that can fail before the request is made.
+        response = await fetch(proxiedUrl, {
+          method: "GET",
+          signal: controller?.signal || request.signal
+        });
+      } catch (proxyError) {
+        recordFetchStatus(0, true);
+        recordFetchError(validation.url, "p", proxyError);
+        throw proxyError;
+      }
     }
     recordFetchStatus(response.status, proxied);
     const binaryResponse =
@@ -340,9 +373,9 @@ async function directBrowserFetch(request) {
       validation.url
     );
   } catch (error) {
-    // Network errors, aborts and CORS failures never produce a status; count
-    // them so the tally distinguishes "blocked" from "unreachable".
-    recordFetchStatus(0, false);
+    // Aborts, malformed bodies and other late failures: keep the host in the
+    // error tally but do not add a second status for the same request.
+    recordFetchError(validation.url, "x", error);
     throw error;
   } finally {
     clearTimeout(timer);

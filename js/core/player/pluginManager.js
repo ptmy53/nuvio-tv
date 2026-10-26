@@ -2,7 +2,7 @@ import { PluginStore, getEffectivePluginProfileId } from "../../data/local/plugi
 import { PluginCodeStore } from "../../data/local/pluginCodeStore.js";
 import { PluginRuntime } from "./pluginRuntime.js";
 import { PluginExecutionFlight } from "./pluginExecutionFlight.js";
-import { PluginServiceClient, getPluginFetchStats, resetPluginFetchStats } from "../../platform/pluginServiceClient.js";
+import { PluginServiceClient, getPluginFetchStats, getPluginFetchErrors, resetPluginFetchStats } from "../../platform/pluginServiceClient.js";
 import { Platform } from "../../platform/index.js";
 import { getPluginCapabilitySnapshot } from "./pluginPolicy.js";
 import {
@@ -2142,7 +2142,8 @@ export const PluginManager = {
       lastError: recentScraperErrors.length
         ? recentScraperErrors[recentScraperErrors.length - 1]
         : null,
-      statusSummary: getPluginFetchStats().slice(0, 5)
+      statusSummary: getPluginFetchStats().slice(0, 5),
+      fetchErrors: getPluginFetchErrors()
     };
     if (signal?.aborted) return [];
 
