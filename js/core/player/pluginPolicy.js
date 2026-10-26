@@ -50,8 +50,15 @@ export const PLUGIN_QUOTAS = Object.freeze({
     maxFetchBytes: 512 * 1024,
     maxResultsPerScraper: 25,
     maxResults: 100,
-    providerTimeoutMs: 12000,
+    // Scraper sites commonly take 15-30 s to answer. 12 s made every
+    // provider but the fastest ones time out, so a run appeared to contain
+    // only its first result.
+    providerTimeoutMs: 25000,
     globalTimeoutMs: 90000,
+    // With two workers, fanning out to every repository scraper queues the
+    // tail of the list minutes behind. Cap each run and rotate the start
+    // offset so consecutive runs cover the full repository.
+    maxStreamProviders: 10,
     maxDocuments: 2,
     maxDomElements: 6000,
     memoryLimitBytes: 32 * 1024 * 1024

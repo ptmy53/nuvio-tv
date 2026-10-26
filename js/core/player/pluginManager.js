@@ -33,6 +33,13 @@ import { emitPluginDiagnosticEvent } from "../diagnostics/pluginDiagnostics.js";
 const singleFlight = new PluginExecutionFlight();
 const queuedExecutions = [];
 let runningExecutions = 0;
+// Per-run fan-out bookkeeping for weak TV devices (see maxStreamProviders in
+// PLUGIN_QUOTAS): rotate which providers run and keep a small report of the
+// last stream request so the ?tvdebug=1 overlay can show why most providers
+// produced nothing.
+let streamRunRotation = 0;
+let lastStreamRunReport = null;
+const recentScraperErrors = [];
 let runtimeReadyPromise = null;
 let reconcileTail = Promise.resolve();
 export const ANDROID_PLUGIN_MANAGEMENT_USER_AGENT = "NuvioTV/1.0";
@@ -1107,6 +1114,9 @@ async function executeOne(
       return rawResults.map((entry) => resultToStream(entry, scraper)).filter(Boolean);
     })
     .catch((error) => {
+      const message = String(error?.message || error || "unknown");
+      recentScraperErrors.push(`${scraper.id}: ${message}`.slice(0, 200));
+      if (recentScraperErrors.length > 8) recentScraperErrors.shift();
       logPluginDiagnostic("plugin scraper execution failed", {
         repository: diagnosticRepository(repository),
         scraperId: String(scraper?.id || "").slice(0, 128),
@@ -1173,6 +1183,10 @@ export const PluginManager = {
     return this.ensureRuntime()
       .then(() => this.getCapabilitySnapshot())
       .catch(() => this.getCapabilitySnapshot());
+  },
+
+  getLastStreamRunReport() {
+    return lastStreamRunReport;
   },
 
   async ensureRuntime() {
@@ -2001,6 +2015,22 @@ export const PluginManager = {
     };
     const eligible = executableScrapersForMediaType(state, mediaType);
     if (!eligible.length) return [];
+    // Weak TV devices (Foxxum) cannot drain a 60+ scraper repository within a
+    // watchable window: with two workers every provider after the first few
+    // queues minutes behind and the global budget aborts them. Cap each run to
+    // a bounded fan-out and rotate the starting offset so consecutive runs
+    // cover the whole repository fairly instead of always favouring the head.
+    const providerCap = Math.max(0, Number(quota.maxStreamProviders) || 0);
+    const startedAt = Date.now();
+    let targets = eligible;
+    if (providerCap > 0 && eligible.length > providerCap) {
+      const offset = streamRunRotation % eligible.length;
+      streamRunRotation += providerCap;
+      targets = eligible
+        .slice(offset)
+        .concat(eligible.slice(0, offset))
+        .slice(0, providerCap);
+    }
     const completedGroups = [];
     const emit = typeof onGroup === "function" ? onGroup : null;
     let emittedCount = 0;
@@ -2034,7 +2064,7 @@ export const PluginManager = {
       }
     };
     await Promise.all(
-      eligible.map(async (scraper, index) => {
+      targets.map(async (scraper, index) => {
         const repository = state.repositories.find((entry) => entry.id === scraper.repositoryId);
         await delayWithSignal(index * 60, signal);
         if (signal?.aborted || !repository) return;
@@ -2046,6 +2076,23 @@ export const PluginManager = {
         emitGroup(group);
       })
     );
+    lastStreamRunReport = {
+      eligibleCount: eligible.length,
+      ranCount: targets.length,
+      resultProviders: completedGroups.filter(
+        (group) => Array.isArray(group.streams) && group.streams.length > 0
+      ).length,
+      streamCount: completedGroups.reduce(
+        (sum, group) => sum + (Array.isArray(group.streams) ? group.streams.length : 0),
+        0
+      ),
+      durationMs: Date.now() - startedAt,
+      mediaType: String(args.mediaType || ""),
+      tmdbId: String(args.tmdbId || ""),
+      lastError: recentScraperErrors.length
+        ? recentScraperErrors[recentScraperErrors.length - 1]
+        : null
+    };
     if (signal?.aborted) return [];
 
     // Android's streaming path emits one complete result list per scraper and

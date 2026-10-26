@@ -94,6 +94,20 @@ export function installTvInputDebug() {
     } catch (_) {
       // ignore
     }
+    let streamLine = "";
+    try {
+      const report = PluginManager.getLastStreamRunReport?.();
+      if (report) {
+        streamLine =
+          "soncalisma: " + report.resultProviders + "/" + report.ranCount + " saglayici sonuc verdi" +
+          "  (" + Math.max(0, Math.round(report.durationMs / 1000)) + " sn, " + report.streamCount + " akis)";
+        if (report.lastError) {
+          streamLine += "  |  son hata: " + String(report.lastError).slice(0, 90);
+        }
+      }
+    } catch (_) {
+      // ignore
+    }
     const lines = [
       "NUVIO TV DEBUG  |  ekran: " + currentScreenId() + "  |  odak: " + currentFocusLabel(),
       "tus sayisi: " + keyCount + "  |  son tus: " + lastKey,
@@ -106,6 +120,7 @@ export function installTvInputDebug() {
         "  fetch=" + (typeof globalThis.fetch === "function" ? "var" : "YOK"),
       pluginLine,
       providerLine,
+      streamLine,
       "UA: " + ua.slice(0, 220)
     ];
     if (errors.length) {
