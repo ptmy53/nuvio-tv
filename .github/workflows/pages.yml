@@ -77,7 +77,11 @@ jobs:
         run: |
           VERSION="${GITHUB_SHA::8}"
           sed -i "s/?v=[A-Za-z0-9._-]*/?v=${VERSION}/g" dist/index.html
+          # nuvio.env.js is referenced without a query string; tag it too so TVs
+          # with a cached runtime env pick up new proxy/api configuration.
+          sed -i "s|src=\"nuvio.env.js\"|src=\"nuvio.env.js?v=${VERSION}\"|" dist/index.html
           grep -o "app.bundle.js?v=[^\"']*" dist/index.html
+          grep -o "nuvio.env.js[^\"']*" dist/index.html
 
       # GitHub Pages has no SPA fallback, so deep links are redirected to the
       # site root instead of showing a 404 page.

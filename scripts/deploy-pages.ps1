@@ -28,6 +28,9 @@ if (-not $SkipBuild) {
 $indexPath = Join-Path $repoRoot "dist\index.html"
 $index = Get-Content $indexPath -Raw
 $index = [regex]::Replace($index, "\?v=[A-Za-z0-9._-]*", "?v=$sha")
+# nuvio.env.js is referenced without a query string; tag it too so TVs with a
+# cached runtime env pick up new proxy/api configuration on every deploy.
+$index = $index -replace 'src="nuvio\.env\.js"', "src=`"nuvio.env.js?v=$sha`""
 Set-Content -Path $indexPath -Value $index -NoNewline
 
 $notFound = @"
