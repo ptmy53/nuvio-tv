@@ -326,9 +326,32 @@ export function streamDirectPlaybackUrl(stream = {}) {
   if (!source) return "";
   const proxy = String(globalThis.__NUVIO_STREAM_PROXY__ || "").trim();
   if (!proxy || !/^https?:\/\//i.test(source) || /^magnet:/i.test(source)) return source;
-  return proxy.includes("%s")
+  const proxied = proxy.includes("%s")
     ? proxy.replace("%s", encodeURIComponent(source))
     : `${proxy}${proxy.includes("?") ? "&" : "?"}url=${encodeURIComponent(source)}`;
+  // Some sources require request headers (User-Agent, Referer) that browsers
+  // cannot set on their own fetches. Encode them for the forwarding proxy,
+  // which applies them to the upstream request for the manifest, the segments
+  // and any key URLs it rewrites.
+  const requestHeaders =
+    stream?.raw?.behaviorHints?.proxyHeaders?.request || stream?.behaviorHints?.proxyHeaders?.request || null;
+  if (requestHeaders && typeof requestHeaders === "object") {
+    const kept = {};
+    for (const [name, value] of Object.entries(requestHeaders)) {
+      if (name && String(value ?? "").trim()) kept[name] = String(value);
+    }
+    if (Object.keys(kept).length) {
+      try {
+        const bytes = new TextEncoder().encode(JSON.stringify(kept));
+        let binary = "";
+        for (let index = 0; index < bytes.length; index += 1) binary += String.fromCharCode(bytes[index]);
+        return `${proxied}&headers=${encodeURIComponent(btoa(binary))}`;
+      } catch (_) {
+        return proxied;
+      }
+    }
+  }
+  return proxied;
 }
 
 export function streamDebridIdentity(item = {}) {
