@@ -1,6 +1,7 @@
 name = "nuvio-tv-proxy"
 main = "src/index.js"
 compatibility_date = "2026-10-23"
+account_id = "6a57f8aa47d90531faeae08fd37578b5"
 
 [observability]
 enabled = true

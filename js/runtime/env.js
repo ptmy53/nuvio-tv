@@ -21,6 +21,10 @@
       typeof existing.DEVICE_LOGIN_WEB_BASE_URL === "undefined"
         ? "https://nuvio.tv/link"
         : existing.DEVICE_LOGIN_WEB_BASE_URL,
+    NUVIO_PLUGIN_HTTP_PROXY:
+      typeof existing.NUVIO_PLUGIN_HTTP_PROXY === "undefined" ? "" : existing.NUVIO_PLUGIN_HTTP_PROXY,
+    NUVIO_STREAM_PROXY:
+      typeof existing.NUVIO_STREAM_PROXY === "undefined" ? "" : existing.NUVIO_STREAM_PROXY,
     YOUTUBE_PROXY_URL:
       typeof existing.YOUTUBE_PROXY_URL === "undefined"
         ? "youtube-proxy.html"
@@ -69,4 +73,6 @@
     PREMIUMIZE_CLIENT_ID:
       typeof existing.PREMIUMIZE_CLIENT_ID === "undefined" ? "" : existing.PREMIUMIZE_CLIENT_ID
   };
+  root.__NUVIO_PLUGIN_HTTP_PROXY__ = root.__NUVIO_ENV__.NUVIO_PLUGIN_HTTP_PROXY || "";
+  root.__NUVIO_STREAM_PROXY__ = root.__NUVIO_ENV__.NUVIO_STREAM_PROXY || "";
 })();
