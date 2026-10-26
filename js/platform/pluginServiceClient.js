@@ -289,6 +289,25 @@ async function directBrowserFetch(request) {
     maxBodyBytes: Number(request.maxBodyBytes || 1024 * 1024)
   });
   if (!validation.ok) throw new Error(validation.reason);
+  // Some providers ship a hardcoded private address (e.g. a local relay). The
+  // forwarding proxy refuses those, and the browser cannot reach them either,
+  // so fail fast instead of burning a provider slot.
+  try {
+    const hostname = new URL(validation.url).hostname.toLowerCase();
+    if (
+      /^(10\.|127\.|169\.254\.|192\.168\.|172\.(1[6-9]|2\d|3[0-1])\.)/.test(hostname) ||
+      hostname === "localhost" ||
+      hostname.endsWith(".local")
+    ) {
+      throw new Error("private network fetch blocked");
+    }
+  } catch (hostError) {
+    if (String(hostError?.message || "").includes("private network")) {
+      recordFetchStatus(0, false);
+      recordFetchError(validation.url, "d", hostError);
+      throw hostError;
+    }
+  }
   const controller = typeof AbortController === "function" ? new AbortController() : null;
   const abort = () => controller?.abort();
   request.signal?.addEventListener?.("abort", abort, { once: true });
@@ -328,14 +347,34 @@ async function directBrowserFetch(request) {
         recordFetchError(validation.url, "d", directError);
         throw directError;
       }
-      const proxiedUrl = proxy.includes("%s")
+      let proxiedUrl = proxy.includes("%s")
         ? proxy.replace("%s", encodeURIComponent(validation.url))
         : proxy + encodeURIComponent(validation.url);
       proxied = true;
+      // Providers that declare a User-Agent/Referer/Origin cannot set those in
+      // a browser fetch (forbidden headers) and many sites answer 403 without
+      // them. Forward them as data for the proxy instead of as request headers,
+      // which also keeps the request preflight-free.
+      const forwardable = {};
+      const sourceHeaders = validation.headers && typeof validation.headers === "object" ? validation.headers : {};
+      for (const [name, value] of Object.entries(sourceHeaders)) {
+        const key = String(name || "").toLowerCase();
+        if (!value) continue;
+        if (["user-agent", "referer", "origin", "accept", "accept-language"].includes(key)) {
+          forwardable[key] = String(value);
+        }
+      }
+      if (Object.keys(forwardable).length) {
+        try {
+          const bytes = new TextEncoder().encode(JSON.stringify(forwardable));
+          let binary = "";
+          for (let index = 0; index < bytes.length; index += 1) binary += String.fromCharCode(bytes[index]);
+          proxiedUrl += `${proxiedUrl.includes("?") ? "&" : "?"}headers=${encodeURIComponent(btoa(binary))}`;
+        } catch (_) {
+          // encoding failed: fall back to the proxy's default headers
+        }
+      }
       try {
-        // Deliberately send no provider headers: the forwarding proxy applies
-        // the required User-Agent/Referer itself, and a custom header would
-        // force a CORS preflight that can fail before the request is made.
         response = await fetch(proxiedUrl, {
           method: "GET",
           signal: controller?.signal || request.signal
