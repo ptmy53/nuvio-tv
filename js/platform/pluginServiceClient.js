@@ -386,6 +386,13 @@ async function directBrowserFetch(request) {
       }
     }
     recordFetchStatus(response.status, proxied);
+    if (response.status >= 400) {
+      // Keep blocked hosts visible by name so dead or Cloudflare-hostile
+      // providers can be pruned instead of being retried forever.
+      recordFetchError(validation.url, `${response.status}${proxied ? "p" : "d"}`, {
+        message: `HTTP ${response.status}`
+      });
+    }
     const binaryResponse =
       request.responseEncoding === "base64" ? await response.clone().arrayBuffer() : null;
     const body = await response.text();

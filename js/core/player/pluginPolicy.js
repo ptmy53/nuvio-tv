@@ -26,7 +26,9 @@ export const PLUGIN_QUOTAS = Object.freeze({
     memoryLimitBytes: 64 * 1024 * 1024
   }),
   limited: Object.freeze({
-    maxConcurrent: 1,
+    // Desktop browsers can afford a few parallel providers; a single worker
+    // serialized a 240-provider repository into an eight-minute wait.
+    maxConcurrent: 4,
     maxManifestBytes: 128 * 1024,
     maxCodeBytes: 1024 * 1024,
     maxCacheBytes: 8 * 1024 * 1024,
@@ -35,6 +37,7 @@ export const PLUGIN_QUOTAS = Object.freeze({
     maxResults: 75,
     providerTimeoutMs: 25000,
     globalTimeoutMs: 45000,
+    maxStreamProviders: 40,
     maxDocuments: 2,
     maxDomElements: 6000,
     memoryLimitBytes: 32 * 1024 * 1024
@@ -58,7 +61,7 @@ export const PLUGIN_QUOTAS = Object.freeze({
     // With two workers, fanning out to every repository scraper queues the
     // tail of the list minutes behind. Cap each run and rotate the start
     // offset so consecutive runs cover the full repository.
-    maxStreamProviders: 10,
+    maxStreamProviders: 16,
     maxDocuments: 2,
     maxDomElements: 6000,
     memoryLimitBytes: 32 * 1024 * 1024
