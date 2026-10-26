@@ -129,24 +129,56 @@ export const Platform = {
 
   applyLegacyFoxxumViewportScale() {
     if (!this.isLegacyFoxxum() || !globalThis.document?.documentElement) return 1;
-    const cssWidth = Number(globalThis.innerWidth || 0);
-    const cssHeight = Number(globalThis.innerHeight || 0);
-    const screenWidth = Number(globalThis.screen?.width || 0);
-    const screenHeight = Number(globalThis.screen?.height || 0);
-    if (!(cssWidth > 0 && cssHeight > 0 && screenWidth > 0 && screenHeight > 0)) return 1;
-    const widthRatio = screenWidth / cssWidth;
-    const heightRatio = screenHeight / cssHeight;
-    // Vewd can expose a 1280x720 CSS viewport for a 3840x2160 panel. The app
-    // is designed around a 1920x1080 TV canvas, so compensate only when the
-    // physical-to-CSS ratio clearly indicates a scaled legacy TV viewport.
-    if (screenWidth < 3000 || widthRatio < 1.5 || heightRatio < 1.5) return 1;
-    const scale = Math.max(0.5, Math.min(1, 2 / Math.max(widthRatio, heightRatio)));
     const root = globalThis.document.documentElement;
     root.classList.add("foxxum-tv");
-    root.style.setProperty("--foxxum-viewport-scale", String(scale));
-    root.style.setProperty("--foxxum-logical-width", `${Math.ceil(cssWidth / scale)}px`);
-    root.style.setProperty("--foxxum-logical-height", `${Math.ceil(cssHeight / scale)}px`);
-    return scale;
+
+    // Vewd on Vestel/MB180 renders a small logical surface (often 1280x720)
+    // and upscales it to the 4K panel, which makes a 1920x1080 design look
+    // ~1.5x too large. Two-stage fix:
+    //   1. ask the engine for the design viewport via the viewport meta tag;
+    //   2. if the engine ignores it, zoom a 1920x1080 canvas into the space
+    //      the browser actually gives us.
+    const applyDesignCanvas = () => {
+      const cssWidth = Number(globalThis.innerWidth || 0);
+      const cssHeight = Number(globalThis.innerHeight || 0);
+      if (!(cssWidth > 0 && cssHeight > 0)) return;
+      if (cssWidth >= 1700) {
+        // The viewport meta was honoured; native 1920x1080 layout.
+        root.style.removeProperty("--foxxum-viewport-scale");
+        root.style.removeProperty("--foxxum-logical-width");
+        root.style.removeProperty("--foxxum-logical-height");
+        return;
+      }
+      const scale = Math.max(0.4, Math.min(1, cssWidth / 1920));
+      root.style.setProperty("--foxxum-viewport-scale", String(scale));
+      root.style.setProperty("--foxxum-logical-width", "1920px");
+      root.style.setProperty("--foxxum-logical-height", "1080px");
+    };
+
+    try {
+      let viewport = globalThis.document.querySelector("meta[name='viewport']");
+      if (!viewport) {
+        viewport = globalThis.document.createElement("meta");
+        viewport.name = "viewport";
+        globalThis.document.head.appendChild(viewport);
+      }
+      viewport.setAttribute(
+        "content",
+        "width=1920, height=1080, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+      );
+    } catch (_) {
+      // ignore: the zoom fallback below still applies
+    }
+
+    applyDesignCanvas();
+    // The meta change reflows asynchronously; re-check after it settles.
+    try {
+      globalThis.setTimeout(applyDesignCanvas, 350);
+      globalThis.setTimeout(applyDesignCanvas, 1200);
+    } catch (_) {
+      // ignore
+    }
+    return 1;
   },
 
   exitApp() {
