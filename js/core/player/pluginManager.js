@@ -40,6 +40,45 @@ let runningExecutions = 0;
 let streamRunRotation = 0;
 let lastStreamRunReport = null;
 const recentScraperErrors = [];
+
+// Providers that worked on this device stay near the front of the fan-out;
+// the rest rotate so a repository is still fully covered over time. Stored in
+// localStorage because plugin state sync would otherwise spread device-specific
+// network results to every other client.
+const PROVIDER_SCORE_KEY = "nuvio.plugin.providerScore.v1";
+
+function loadProviderScores() {
+  try {
+    const raw = globalThis.localStorage?.getItem(PROVIDER_SCORE_KEY);
+    const parsed = raw ? JSON.parse(raw) : null;
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch (_) {
+    return {};
+  }
+}
+
+function saveProviderScores(scores) {
+  try {
+    globalThis.localStorage?.setItem(PROVIDER_SCORE_KEY, JSON.stringify(scores));
+  } catch (_) {
+    // private mode / quota exceeded: ranking simply stays in-memory
+  }
+}
+
+function rankScrapers(eligible, cap) {
+  if (!(cap > 0) || eligible.length <= cap) return { targets: eligible, knownGood: 0 };
+  const scores = loadProviderScores();
+  const known = eligible.filter((scraper) => Number(scores[scraper.id] || 0) > 0);
+  const rest = eligible.filter((scraper) => Number(scores[scraper.id] || 0) <= 0);
+  const offset = rest.length ? streamRunRotation % rest.length : 0;
+  if (rest.length) streamRunRotation += Math.max(1, cap);
+  const rotated = rest.slice(offset).concat(rest.slice(0, offset));
+  const knownTargets = known.slice(0, cap);
+  return {
+    targets: knownTargets.concat(rotated.slice(0, Math.max(0, cap - knownTargets.length))),
+    knownGood: knownTargets.length
+  };
+}
 let runtimeReadyPromise = null;
 let reconcileTail = Promise.resolve();
 export const ANDROID_PLUGIN_MANAGEMENT_USER_AGENT = "NuvioTV/1.0";
@@ -2023,15 +2062,8 @@ export const PluginManager = {
     // cover the whole repository fairly instead of always favouring the head.
     const providerCap = Math.max(0, Number(quota.maxStreamProviders) || 0);
     const startedAt = Date.now();
-    let targets = eligible;
-    if (providerCap > 0 && eligible.length > providerCap) {
-      const offset = streamRunRotation % eligible.length;
-      streamRunRotation += providerCap;
-      targets = eligible
-        .slice(offset)
-        .concat(eligible.slice(0, offset))
-        .slice(0, providerCap);
-    }
+    const ranked = rankScrapers(eligible, providerCap);
+    const targets = ranked.targets;
     const completedGroups = [];
     const emit = typeof onGroup === "function" ? onGroup : null;
     let emittedCount = 0;
@@ -2077,9 +2109,26 @@ export const PluginManager = {
         emitGroup(group);
       })
     );
+    // Learn which providers actually work on this device so later runs find
+    // them in the first slots instead of cycling blindly.
+    try {
+      const scores = loadProviderScores();
+      for (const group of completedGroups) {
+        const id = group?.scraper?.id;
+        if (!id) continue;
+        const produced = Array.isArray(group.streams) && group.streams.length > 0;
+        const next = Number(scores[id] || 0) + (produced ? 2 : -1);
+        if (next > 0) scores[id] = Math.min(20, next);
+        else delete scores[id];
+      }
+      saveProviderScores(scores);
+    } catch (_) {
+      // scoring is best effort
+    }
     lastStreamRunReport = {
       eligibleCount: eligible.length,
       ranCount: targets.length,
+      knownGoodCount: ranked.knownGood,
       resultProviders: completedGroups.filter(
         (group) => Array.isArray(group.streams) && group.streams.length > 0
       ).length,

@@ -101,7 +101,8 @@ export function installTvInputDebug() {
       if (report) {
         streamLine =
           "soncalisma: " + report.resultProviders + "/" + report.ranCount + " saglayici sonuc verdi" +
-          "  (" + Math.max(0, Math.round(report.durationMs / 1000)) + " sn, " + report.streamCount + " akis)";
+          "  (" + Math.max(0, Math.round(report.durationMs / 1000)) + " sn, " + report.streamCount + " akis)" +
+          (Number(report.knownGoodCount || 0) > 0 ? "  bilinen iyi: " + report.knownGoodCount : "");
         if (report.lastError) {
           streamLine += "  |  son hata: " + String(report.lastError).slice(0, 90);
         }
