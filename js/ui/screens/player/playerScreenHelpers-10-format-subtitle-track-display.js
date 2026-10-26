@@ -324,7 +324,9 @@ export function directPlaybackUrl(value = "") {
 export function streamDirectPlaybackUrl(stream = {}) {
   const source = directPlaybackUrl(stream?.url) || directPlaybackUrl(stream?.externalUrl);
   if (!source) return "";
-  const proxy = String(globalThis.__NUVIO_STREAM_PROXY__ || "").trim();
+  const proxy = String(
+    globalThis.__NUVIO_STREAM_PROXY__ || globalThis.__NUVIO_ENV__?.NUVIO_STREAM_PROXY || ""
+  ).trim();
   if (!proxy || !/^https?:\/\//i.test(source) || /^magnet:/i.test(source)) return source;
   const proxied = proxy.includes("%s")
     ? proxy.replace("%s", encodeURIComponent(source))

@@ -293,7 +293,11 @@ async function directBrowserFetch(request) {
       // Browser CORS blocks many provider sites. When an operator configures a
       // forwarding proxy (`__NUVIO_PLUGIN_HTTP_PROXY__`, either a prefix or a
       // template containing %s) retry safe GET/HEAD requests through it.
-      const proxy = String(globalThis.__NUVIO_PLUGIN_HTTP_PROXY__ || "").trim();
+      const proxy = String(
+        globalThis.__NUVIO_PLUGIN_HTTP_PROXY__ ||
+          globalThis.__NUVIO_ENV__?.NUVIO_PLUGIN_HTTP_PROXY ||
+          ""
+      ).trim();
       const retryable = validation.method === "GET" || validation.method === "HEAD";
       if (!proxy || !retryable) {
         recordFetchStatus(0, false);

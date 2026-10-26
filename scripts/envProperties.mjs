@@ -160,6 +160,12 @@ export function buildRuntimeEnvScript(env = {}) {
     }
   }
   root.__NUVIO_ENV__ = env;
+  // Convenience globals read directly by the player and the plugin fetch
+  // bridge. They are assigned here so the value is available as soon as the
+  // runtime env loads instead of depending on a module that may not be part
+  // of the bundle.
+  root.__NUVIO_PLUGIN_HTTP_PROXY__ = String(env.NUVIO_PLUGIN_HTTP_PROXY || "");
+  root.__NUVIO_STREAM_PROXY__ = String(env.NUVIO_STREAM_PROXY || "");
 }());
 `;
 }
