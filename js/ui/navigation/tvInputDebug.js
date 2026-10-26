@@ -129,6 +129,12 @@ export function installTvInputDebug() {
         "  fetch=" + (typeof globalThis.fetch === "function" ? "var" : "YOK"),
       pluginLine,
       providerLine,
+      "proxy: " +
+        (globalThis.__NUVIO_PLUGIN_HTTP_PROXY__ ? "hazir" : "YOK") +
+        "  |  akis: " +
+        (globalThis.__NUVIO_STREAM_PROXY__ ? "hazir" : "YOK") +
+        "  |  env: " +
+        (globalThis.__NUVIO_ENV__ && globalThis.__NUVIO_ENV__.NUVIO_PLUGIN_HTTP_PROXY ? "var" : "yok"),
       streamLine,
       fetchLine,
       "UA: " + ua.slice(0, 220)
