@@ -51,6 +51,20 @@ function hasActiveModal() {
 
 const BACK_DEBOUNCE_MS = 250;
 
+// TV remotes often expose a dedicated Play button that the browser reports as
+// a media key (415 / 10252 / 179) instead of Enter. Outside a media element
+// there is nothing to play, so treat it as OK: pressing Play on a details
+// screen must open its sources instead of doing nothing.
+function isMediaActivateKey(event) {
+  const code = Number(event?.keyCode || event?.originalKeyCode || 0);
+  const rawCode = Number(event?.originalKeyCode || 0);
+  if ([179, 415, 10252].includes(code) || [179, 415, 10252].includes(rawCode)) return true;
+  const name = String(event?.key || event?.code || event?.keyName || "")
+    .trim()
+    .toLowerCase();
+  return ["mediaplaypause", "mediaplay", "play"].includes(name);
+}
+
 export const FocusEngine = {
   lastBackHandledAt: 0,
   lastPointerFocusTarget: null,
@@ -220,6 +234,13 @@ export const FocusEngine = {
 
     const currentScreen = Router.getCurrentScreen();
 
+    if (isMediaActivateKey(normalizedEvent)) {
+      normalizedEvent.key = "Enter";
+      normalizedEvent.code = "Enter";
+      normalizedEvent.keyCode = 13;
+      normalizedEvent.which = 13;
+    }
+
     if (currentScreen?.onKeyDown) {
       Promise.resolve(currentScreen.onKeyDown(normalizedEvent)).catch((error) => {
         console.warn("Screen keydown handler failed", error);
@@ -270,6 +291,12 @@ export const FocusEngine = {
     const currentScreen = Router.getCurrentScreen();
     if (!currentScreen?.onKeyUp) {
       return;
+    }
+    if (isMediaActivateKey(normalizedEvent)) {
+      normalizedEvent.key = "Enter";
+      normalizedEvent.code = "Enter";
+      normalizedEvent.keyCode = 13;
+      normalizedEvent.which = 13;
     }
     Promise.resolve(currentScreen.onKeyUp(normalizedEvent)).catch((error) => {
       console.warn("Screen keyup handler failed", error);
