@@ -66,6 +66,9 @@ export function installTvInputDebug() {
 
   let keyCount = 0;
   let lastKey = "(henuz tus gelmedi)";
+  let clickCount = 0;
+  let pointerCount = 0;
+  let lastPointer = "(henuz tik yok)";
   const errors = [];
   let runtimeProbeStarted = false;
   let versionNote = "";
@@ -130,6 +133,7 @@ export function installTvInputDebug() {
     const lines = [
       "NUVIO TV DEBUG  |  ekran: " + currentScreenId() + "  |  odak: " + currentFocusLabel(),
       "tus sayisi: " + keyCount + "  |  son tus: " + lastKey,
+      "fare: tik=" + clickCount + "  diger=" + pointerCount + "  |  son: " + lastPointer,
       "platform: " + String(globalThis.__NUVIO_PLATFORM__ || "(otomatik)") +
         "  |  " + String(globalThis.innerWidth) + "x" + String(globalThis.innerHeight),
       "screen: " + String(globalThis.screen?.width || 0) + "x" + String(globalThis.screen?.height || 0) +
@@ -224,6 +228,42 @@ export function installTvInputDebug() {
     render();
   };
 
+  // TV browsers can run in pointer mode: the remote moves an on-screen cursor
+  // and OK becomes a click. Track which DOM event actually arrives so a button
+  // that "does nothing" can be diagnosed instead of guessed at.
+  const describeTarget = (target) => {
+    try {
+      const element = target?.nodeType === 1 ? target : target?.parentElement;
+      if (!element) return "-";
+      const classes = String(element.className || "")
+        .split(/\s+/)
+        .filter(Boolean)
+        .slice(0, 2)
+        .join(".");
+      const action =
+        element.getAttribute?.("data-action") ||
+        element.closest?.("[data-action]")?.getAttribute?.("data-action") ||
+        "";
+      return `${element.tagName || "?"}${classes ? "." + classes : ""}${action ? `[${action}]` : ""}`;
+    } catch (_) {
+      return "?";
+    }
+  };
+
+  const onPointer = (event) => {
+    try {
+      if (panel?.contains?.(event.target)) return;
+    } catch (_) {
+      // ignore
+    }
+    if (event.type === "click") clickCount += 1;
+    else pointerCount += 1;
+    const x = Math.round(Number(event.clientX || event.touches?.[0]?.clientX || 0));
+    const y = Math.round(Number(event.clientY || event.touches?.[0]?.clientY || 0));
+    lastPointer = `${event.type} ${describeTarget(event.target)} @${x},${y}`;
+    render();
+  };
+
   const onError = (event) => {
     const message = String(event?.message || event?.reason?.message || event?.reason || event?.error || "");
     if (message) {
@@ -233,6 +273,9 @@ export function installTvInputDebug() {
   };
 
   globalThis.addEventListener("keydown", onKey, true);
+  ["pointerdown", "mousedown", "touchstart", "click"].forEach((type) =>
+    globalThis.addEventListener(type, onPointer, true)
+  );
   globalThis.addEventListener("error", onError, true);
   globalThis.addEventListener("unhandledrejection", onError, true);
   globalThis.setInterval?.(render, 1000);

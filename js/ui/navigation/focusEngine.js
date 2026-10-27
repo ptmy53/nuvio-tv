@@ -51,6 +51,17 @@ function hasActiveModal() {
 
 const BACK_DEBOUNCE_MS = 250;
 
+// Pointer activation was originally webOS-only (Magic Remote). Vestel/Vewd
+// also runs the app in pointer mode — the remote drives an on-screen cursor —
+// so a click there must reach the screen's onPointerActivate too.
+function supportsPointerActivation() {
+  try {
+    return Platform.isWebOS() || Platform.isLegacyFoxxum?.();
+  } catch (_) {
+    return false;
+  }
+}
+
 // TV remotes often expose a dedicated Play button that the browser reports as
 // a media key (415 / 10252 / 179) instead of Enter. Outside a media element
 // there is nothing to play, so treat it as OK: pressing Play on a details
@@ -96,12 +107,13 @@ export const FocusEngine = {
         this.focusDocument();
       }
     });
-    if (Platform.isWebOS()) {
+    if (supportsPointerActivation()) {
       document.addEventListener("mousemove", this.boundHandlePointerMove, true);
       document.addEventListener("pointermove", this.boundHandlePointerMove, true);
       document.addEventListener("click", this.boundHandlePointerClick, true);
-      document.documentElement?.classList?.add("webos-pointer-remote");
-      document.body?.classList?.add("webos-pointer-remote");
+      const pointerClass = Platform.isWebOS() ? "webos-pointer-remote" : "foxxum-pointer-remote";
+      document.documentElement?.classList?.add(pointerClass);
+      document.body?.classList?.add(pointerClass);
     }
   },
 
@@ -375,7 +387,7 @@ export const FocusEngine = {
   },
 
   handlePointerMove(event) {
-    if (!Platform.isWebOS()) {
+    if (!supportsPointerActivation()) {
       return;
     }
     this.pendingPointerMoveEvent = event;
@@ -396,7 +408,7 @@ export const FocusEngine = {
   },
 
   processPointerMove(event) {
-    if (!Platform.isWebOS()) {
+    if (!supportsPointerActivation()) {
       return;
     }
     const currentScreen = Router.getCurrentScreen();
@@ -426,7 +438,7 @@ export const FocusEngine = {
   },
 
   handlePointerClick(event) {
-    if (!Platform.isWebOS()) {
+    if (!supportsPointerActivation()) {
       return;
     }
     const target = this.getPointerFocusable(event);
