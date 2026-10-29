@@ -247,6 +247,21 @@ export const PluginsScreen = {
                 ${runtimeNotice(model)}
 
                 ${
+                  repositories.length === 0 && !model.readOnly
+                    ? `<section class="plugins-empty-card">
+                  <p><strong>${escapeHtml(t("plugin_no_repos", {}, "No repositories added yet."))}</strong></p>
+                  <p>${escapeHtml(
+                    t(
+                      "plugin_no_repos_hint",
+                      {},
+                      "Tap \"Fill suggested repository\", then Add. Providers appear after the repository finishes loading."
+                    )
+                  )}</p>
+                </section>`
+                    : ""
+                }
+
+                ${
                   model.readOnly
                     ? `<section class="plugins-readonly-card">
                   <span class="plugins-readonly-icon material-icons" aria-hidden="true">lock</span>

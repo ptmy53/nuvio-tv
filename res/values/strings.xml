@@ -1899,6 +1899,7 @@
     <string name="plugin_enabled">Enabled</string>
     <string name="plugin_disabled">Disabled</string>
     <string name="plugin_no_repos">No repositories added yet.\nAdd a repository to get started.</string>
+    <string name="plugin_no_repos_hint">Tap "Fill suggested repository", then Add. Providers appear after the repository finishes loading.</string>
     <string name="plugin_error_invalid_url">Please enter a valid URL</string>
     <string name="plugin_error_add_repo">Failed to add repository: %1$s</string>
     <string name="plugin_error_refresh">Failed to refresh: %1$s</string>

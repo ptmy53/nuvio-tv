@@ -1643,6 +1643,7 @@
     <string name="plugin_enabled">Etkin</string>
     <string name="plugin_disabled">Devre Dışı</string>
     <string name="plugin_no_repos">Henüz depo eklenmedi.\nBaşlamak için bir depo ekleyin.</string>
+    <string name="plugin_no_repos_hint">"Önerilen depoyu doldur" düğmesine basıp sonra "Ekle"ye dokunun. Sağlayıcılar depo yüklendikten sonra görünür.</string>
     <string name="profile_edit_title_id">Profili Düzenle: %1$d</string>
     <string name="audio_passthrough_info">Yüksek kaliteli ses geçidi (TrueHD, DTS, AC-3) desteklenen HDMI veya uyumlu ses alıcı / arayüz bar donanımlarına bağlanıldığında yazılımın çözümüne bırakılmadan direkt doğrudan iletilir.</string>
     <string name="nav_home">Ana Menü</string>
