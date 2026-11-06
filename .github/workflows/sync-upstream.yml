@@ -1,0 +1,75 @@
+name: Sync upstream Nuvio
+
+# Keeps this fork on the latest official release. Once a day (and on demand)
+# upstream main is merged into this repository's main; when the merge brings
+# anything new, the Pages build runs immediately in the same workflow because
+# pushes made with GITHUB_TOKEN do not trigger other workflows.
+on:
+  schedule:
+    - cron: "0 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: upstream-sync
+  cancel-in-progress: false
+
+jobs:
+  merge:
+    runs-on: ubuntu-latest
+    outputs:
+      changed: ${{ steps.merge.outputs.changed }}
+      version: ${{ steps.merge.outputs.version }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Merge upstream main
+        id: merge
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git remote add upstream https://github.com/NuvioMedia/NuvioTVSmart.git
+          git fetch upstream main
+          UPSTREAM_SHA="$(git rev-parse upstream/main)"
+          echo "upstream head: ${UPSTREAM_SHA}"
+          if git merge-base --is-ancestor "${UPSTREAM_SHA}" HEAD; then
+            echo "Already up to date with upstream."
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if ! git merge --no-edit "${UPSTREAM_SHA}"; then
+            echo "::error::Upstream merge has conflicts. Resolve them locally, push, then re-run this workflow."
+            git merge --abort
+            exit 1
+          fi
+          # The fork carries local patches (Foxxum platform, proxy, pointer
+          # input). A merge that silently drops them is worse than failing.
+          for marker in \
+            js/platform/index.js \
+            js/ui/navigation/focusEngine.js \
+            js/ui/navigation/tvInputDebug.js \
+            js/platform/pluginServiceClient.js \
+            services/cloudflare/nuvio-proxy/src/index.js
+          do
+            if [ ! -f "$marker" ]; then
+              echo "::error::Expected fork file missing after merge: $marker"
+              exit 1
+            fi
+          done
+          git push origin HEAD:main
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+          node -e "console.log('version=' + require('./package.json').version)" >> "$GITHUB_OUTPUT"
+
+  publish:
+    needs: merge
+    if: needs.merge.outputs.changed == 'true'
+    uses: ./.github/workflows/build-deploy.yml
+    secrets: inherit
+    permissions:
+      contents: write

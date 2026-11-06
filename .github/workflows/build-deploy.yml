@@ -1,0 +1,102 @@
+name: Build and publish gh-pages
+
+# Reusable build: compiles dist/ and force-pushes it to the gh-pages branch.
+# GitHub Pages for this repository uses build_type=legacy with gh-pages as the
+# source, so publishing is a plain branch push (no Pages artifact pipeline).
+on:
+  workflow_call:
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Runtime configuration. Values come from repository secrets; empty
+      # values are allowed and the app still boots.
+      - name: Write local.properties
+        env:
+          TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
+          TRAKT_CLIENT_ID: ${{ secrets.TRAKT_CLIENT_ID }}
+          TRAKT_CLIENT_SECRET: ${{ secrets.TRAKT_CLIENT_SECRET }}
+          SIMKL_CLIENT_ID: ${{ secrets.SIMKL_CLIENT_ID }}
+          MDBLIST_CLIENT_ID: ${{ secrets.MDBLIST_CLIENT_ID }}
+          NUVIO_PLUGIN_HTTP_PROXY: ${{ secrets.NUVIO_PLUGIN_HTTP_PROXY }}
+          NUVIO_STREAM_PROXY: ${{ secrets.NUVIO_STREAM_PROXY }}
+        run: |
+          # Public client configuration of the official Nuvio web app. These
+          # values ship inside the public nuvio.tv bundle, so they are not
+          # secrets; keeping them here makes the deployed site work out of the box.
+          cat > local.properties <<EOF
+          NUVIO_SUPABASE_URL=https://api.nuvio.tv
+          NUVIO_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzgxNTIxMzQ2LCJleHAiOjE5MzkyMDEzNDZ9.tmQaj682pwzehpqlgCDMnySOqiUvpgRbrE43T4VJpDI
+          TV_LOGIN_WEB_BASE_URL=https://nuvio.tv/tv-login
+          DEVICE_LOGIN_WEB_BASE_URL=https://nuvio.tv/link
+          NUVIO_PLUGIN_HTTP_PROXY=${NUVIO_PLUGIN_HTTP_PROXY}
+          NUVIO_STREAM_PROXY=${NUVIO_STREAM_PROXY:-${NUVIO_PLUGIN_HTTP_PROXY}}
+          TMDB_API_KEY=${TMDB_API_KEY:-01926d2187b6a5d861eefc750e9df3e3}
+          TRAKT_CLIENT_ID=${TRAKT_CLIENT_ID:-5783db7c46a5b22f072d4b224f9bd7dc2cbaba66dbe3515d1feb59e3ca72394c}
+          TRAKT_CLIENT_SECRET=${TRAKT_CLIENT_SECRET}
+          SIMKL_CLIENT_ID=${SIMKL_CLIENT_ID}
+          SIMKL_APP_NAME=nuvio
+          MDBLIST_CLIENT_ID=${MDBLIST_CLIENT_ID}
+          YOUTUBE_PROXY_URL=youtube-proxy.html
+          INTRODB_API_URL=https://api.introdb.app/
+          SUPPORTERS_API_BASE_URL=https://nuvio.tv/
+          SUPPORT_URL=https://nuvio.tv/support
+          EOF
+
+      - name: Build
+        run: npm run build
+
+      # GitHub Pages caches asset URLs for several minutes. Rewriting the ?v=
+      # token with the commit SHA makes every deploy a fresh URL, so TVs that
+      # keep the page open still load the new bundle after a reload.
+      - name: Cache-bust static assets
+        run: |
+          VERSION="${GITHUB_SHA::8}"
+          sed -i "s/?v=[A-Za-z0-9._-]*/?v=${VERSION}/g" dist/index.html
+          # nuvio.env.js is referenced without a query string; tag it too so TVs
+          # with a cached runtime env pick up new proxy/api configuration.
+          sed -i "s|src=\"nuvio.env.js\"|src=\"nuvio.env.js?v=${VERSION}\"|" dist/index.html
+          grep -o "app.bundle.js?v=[^\"']*" dist/index.html
+          grep -o "nuvio.env.js[^\"']*" dist/index.html
+          printf '{"version":"%s","builtAt":"%s"}\n' "${VERSION}" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > dist/version.json
+
+      # GitHub Pages has no SPA fallback, so deep links are redirected to the
+      # site root instead of showing a 404 page.
+      - name: Prepare Pages output
+        run: |
+          REPO="${{ github.event.repository.name }}"
+          if [ -z "$REPO" ]; then REPO="nuvio-tv"; fi
+          if [[ "$REPO" == *.github.io ]]; then BASE="/"; else BASE="/$REPO/"; fi
+          cat > dist/404.html <<EOF
+          <!doctype html><meta charset="utf-8"><title>Yönlendiriliyor…</title>
+          <script>location.replace("$BASE" + location.hash);</script>
+          <p><a href="$BASE">Nuvio TV</a></p>
+          EOF
+          touch dist/.nojekyll
+
+      - name: Publish to gh-pages
+        run: |
+          cd dist
+          git init -q
+          git checkout -q -b gh-pages
+          git add -A
+          git -c user.name="github-actions[bot]" \
+              -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+              commit -q -m "deploy ${GITHUB_SHA::8}"
+          git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" gh-pages
