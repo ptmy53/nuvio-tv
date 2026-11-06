@@ -79,7 +79,7 @@ function dateLabel(value) {
   const timestamp = Number(value || 0);
   if (!timestamp) return "";
   try {
-    return new Date(timestamp).toLocaleString();
+    return new Date(timestamp).toLocaleString(I18n.getLocale());
   } catch (_) {
     return "";
   }

@@ -4,6 +4,7 @@ import * as internals from "./playerScreenContext.js";
 export function createPlayerScreenMethods30() {
   const {
     PlayerController,
+    TrackingScrobbleService,
     canReleasePlayingNativeStartupAudioGate,
     Environment,
     STARTUP_PLAYBACK_ADVANCE_EPSILON_SECONDS,
@@ -67,6 +68,16 @@ export function createPlayerScreenMethods30() {
       this.startupAudioTrackSetSignature = "";
       PlayerController.setStartupAudioGate?.(false, { resume });
     },
+    syncStartupGateAndParentalGuide() {
+      // Track discovery can finish after the loading overlay is gone, so the
+      // loading-completion loop is no longer there to release the gate.
+      if (this.startupAudioGateActive && this.isStartupGateReleaseReady()) {
+        this.releaseStartupAudioGate();
+      }
+      if (!this.parentalGuideShown) {
+        this.maybeShowParentalGuideOverlay();
+      }
+    },
     isPlaybackStartupSettled() {
       if (!this.hasPresentedPlaybackFrame || this.pendingPlaybackRestore || this.startupAudioGateActive) {
         return false;
@@ -108,6 +119,8 @@ export function createPlayerScreenMethods30() {
         return false;
       }
       this.hasPresentedPlaybackFrame = true;
+      // engineFs defers the playing handler until its first verified frame.
+      if (this.currentEngineFsStream && TrackingScrobbleService.isEnabled()) TrackingScrobbleService.start(this.buildScrobbleContext());
       this.beginPlaybackEngineValidation();
       this.warmBitmapSubtitleSharedResources();
       if (!this.startupTrackPreferenceReady) {

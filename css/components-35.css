@@ -347,13 +347,6 @@
   color: rgba(255, 255, 255, 0.68);
 }
 
-.player-stream-source {
-  display: -webkit-box;
-  overflow: hidden;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-}
-
 .player-title,
 .player-dialog-title,
 .player-sources-title,
@@ -412,6 +405,11 @@
 
 .player-progress-shell {
   margin-top: min(1.25vw, 24px); /* ATV metadata spacer 12dp -> 24px */
+}
+
+/* ATV PlayerScreen: live playback has no progress bar. */
+.player-progress-shell.hidden {
+  display: none;
 }
 
 .player-progress-shell.focused .player-progress-track {

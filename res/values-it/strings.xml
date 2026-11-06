@@ -954,6 +954,7 @@
     <string name="parental_severity_severe">Severa</string>
     <string name="parental_severity_moderate">Moderata</string>
     <string name="parental_severity_mild">Lieve</string>
+    <string name="player_live_watched">LIVE  %1$s</string>
     <string name="player_ends_at">Finisce alle: %1$s</string>
     <string name="player_via">tramite %1$s</string>
     <string name="season_episode_format">S%1$d E%2$d</string>
@@ -3296,4 +3297,29 @@
 
     <string name="stream_resume_from_time">Riprendi da %1$s</string>
     <string name="stream_resume_from_percent">Riprendi dal %1$d%</string>
+    <string name="settings_player_badges_title">Badge nel player</string>
+    <string name="settings_player_badges_description">Mostra i badge del video in riproduzione e della traccia audio selezionata.</string>
+    <string name="settings_player_badges_pack_title">Pacchetto badge del player</string>
+    <string name="settings_player_badges_pack_description">Scegli un pacchetto importato per il player, indipendente dalle schede delle sorgenti.</string>
+    <string name="settings_player_badges_use_stream_pack">Usa il pacchetto delle sorgenti</string>
+    <string name="cd_seek_bar">Barra di avanzamento</string>
+    <string name="mdblist_tracking_description">Sincronizza la cronologia di visione e i progressi di riproduzione tra i dispositivi.</string>
+    <string name="mdblist_status_syncing">Sincronizzazione della cronologia di visione e dei progressi di riproduzione…</string>
+    <string name="mdblist_last_synced">Ultima sincronizzazione: %1$s</string>
+    <string name="sub_strip_sdh">Rimuovi sottotitoli SDH</string>
+    <string name="sub_strip_sdh_desc">Nascondi descrizioni sonore ed etichette dei parlanti dai sottotitoli testuali</string>
+    <string name="autosync_setting_title">Sincronizzazione automatica dei sottotitoli</string>
+    <string name="autosync_setting_description">Abbina la temporizzazione del sottotitolo selezionato da un addon a quella dei sottotitoli incorporati nel video.</string>
+    <string name="autosync_tolerance_title">Tolleranza di sincronizzazione automatica</string>
+    <string name="autosync_tolerance_description">Mantieni la temporizzazione originale quando la correzione necessaria è pari o inferiore a questo valore.</string>
+    <string name="autosync_tolerance_off">Disattivata</string>
+    <string name="autosync_tolerance_value">%1$d ms</string>
+    <string name="autosync_thorough_title">Ricerca approfondita con sincronizzazione automatica</string>
+    <string name="autosync_thorough_description">Continua a confrontare gli altri sottotitoli e le tracce incorporate per trovare una corrispondenza più precisa prima della sincronizzazione. Se disattivata, viene usata prima la prima corrispondenza affidabile. Vengono applicate solo corrispondenze sicure.</string>
+    <string name="autosync_toast_failed">Sincronizzazione non riuscita: Auto Sync non ha trovato una corrispondenza tra questo sottotitolo e il video.</string>
+    <string name="autosync_toast_failed_no_reference">Sincronizzazione non riuscita: questo video non contiene sottotitoli incorporati da confrontare.</string>
+    <string name="autosync_toast_failed_unsupported">Sincronizzazione non riuscita: Auto Sync non supporta questo formato di sottotitoli.</string>
+    <string name="autosync_label_synced">Sincronizzato automaticamente</string>
+    <string name="layout_always_show_landscape_clearlogo">Mostra sempre lo sfondo con il logo per le locandine orizzontali</string>
+    <string name="layout_always_show_landscape_clearlogo_sub">Ignora la locandina orizzontale dell\'addon e usa invece lo sfondo con il logo trasparente sovrapposto.</string>
 </resources>

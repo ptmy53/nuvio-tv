@@ -44,11 +44,25 @@ export const HOME_LOADING_ROW_ITEMS_CONSTRAINED = 8;
 export const HOME_LOADING_ROW_ITEMS_LEGACY_TV = 6;
 export const HOME_STABLE_GATE_TIMEOUT_MS = 5000;
 export const HOME_ROW_TIMEOUT_MS = 3500;
-export const HOME_ADDON_MANIFEST_TIMEOUT_MS = 3500;
+// Home returns the cached manifest immediately and revalidates in the
+// background, so this bounds only that request. Aggregator manifests are built
+// by fetching their child addons and can take seconds; Android's default client
+// allows 30s to connect and 60s to read. A 3.5s cap made slow manifests time
+// out and kept the previous catalog list for the whole 6h cache window.
+export const HOME_ADDON_MANIFEST_TIMEOUT_MS = 30000;
 export const HOME_CATALOG_REFRESH_TTL_MS = 15 * 60 * 1000;
 export const HOME_ROW_RETRY_TIMEOUT_MS = 12000;
 export const HOME_BACKGROUND_RENDER_DELAY_MS = 120;
 export const HOME_BACKGROUND_RENDER_DELAY_LEGACY_MS = 180;
+// Home artwork is decoded at whatever size the source serves. Measured on an
+// LG k8lp the home screen held 179MB of decoded bitmaps while only 34MB was on
+// screen, because a hydrated image is never released. Rows stay mounted, so the
+// cost only ever grows and the renderer was killed around 477MB.
+//
+// Images this far outside the viewport give their bitmap back. The margin sits
+// well beyond the hydration margin so moving between two rows cannot drop an
+// image and immediately reload it.
+export const HOME_LAZY_IMAGE_EVICT_MARGIN_PX = 1600;
 export const HOME_LEGACY_LAZY_HYDRATION_DEBOUNCE_MS = 180;
 export const HOME_LEGACY_LAZY_HYDRATION_MAX_PER_FRAME = 2;
 export const HOME_LEGACY_HERO_BACKDROP_CROSSFADE_MS = 300;

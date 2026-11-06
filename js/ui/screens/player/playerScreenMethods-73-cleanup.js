@@ -5,9 +5,16 @@ export function createPlayerScreenMethods73() {
   const { PlayerController, streamRepository, TrackingScrobbleService, ENGINEFS_NAVIGATION_CLEANUP_GRACE_MS } = internals;
 
   return {
+    stopTrackingBeforeTeardown() {
+      // Android stopAndRelease(): report the position before playback is torn
+      // down, otherwise the stopped engine timeline reads back as zero.
+      if (this.hasPresentedPlaybackFrame && !this.postPlayNaturalCompletionPrepared && TrackingScrobbleService.isEnabled()) {
+        TrackingScrobbleService.stop(this.buildScrobbleContext());
+      }
+    },
     cleanup() {
       this.closeStreamInfo({ restore: false });
-      // Android stopAndRelease(): read the position before playback is torn down.
+      this.stopTrackingBeforeTeardown();
       try {
         this.leavePartyPlayback();
       } catch (error) {
@@ -72,6 +79,7 @@ export function createPlayerScreenMethods73() {
         this.subtitleDelayOverlayVisible = false;
         this.subtitleTimingDialogVisible = false;
         this.resetSubtitleAutoSyncState();
+        this.resetAutomaticSubtitleSyncState({ resetStartupKey: true });
         this.pauseOverlayMetaRequestToken = Number(this.pauseOverlayMetaRequestToken || 0) + 1;
         this.nextEpisodeTransitionMeta = null;
         this.streamCandidatesByVideoId?.clear?.();

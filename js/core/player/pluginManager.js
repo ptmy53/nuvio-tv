@@ -1,5 +1,7 @@
 import { PluginStore, getEffectivePluginProfileId } from "../../data/local/pluginStore.js";
+import { queueProfileSettingsCloudSync } from "../../data/local/profileScopedStore.js";
 import { PluginCodeStore } from "../../data/local/pluginCodeStore.js";
+import { ProfileManager } from "../profile/profileManager.js";
 import { PluginRuntime } from "./pluginRuntime.js";
 import { PluginExecutionFlight } from "./pluginExecutionFlight.js";
 import { PluginServiceClient, getPluginFetchStats, getPluginFetchErrors, resetPluginFetchStats } from "../../platform/pluginServiceClient.js";
@@ -819,6 +821,8 @@ async function classifyRemoteRepository(remote, quota) {
 }
 
 async function downloadCode(scraper, repository, quota, profileId = null) {
+  const targetProfileId = getEffectivePluginProfileId(profileId == null ? undefined : profileId);
+  const profileVersion = ProfileManager.getProfileDataVersion(targetProfileId);
   const existing = await PluginCodeStore.get(scraper.id, profileId);
   logPluginDiagnostic("plugin code download begin", {
     profileId: profileId == null ? "" : String(profileId),
@@ -841,6 +845,7 @@ async function downloadCode(scraper, repository, quota, profileId = null) {
     });
     if (!response.ok || response.truncated || !response.body.trim())
       throw new Error(`HTTP ${response.status || 0}`);
+    if (profileVersion !== ProfileManager.getProfileDataVersion(targetProfileId)) return false;
     if (
       !(await PluginCodeStore.save(
         scraper.id,
@@ -1346,14 +1351,20 @@ export const PluginManager = {
   setGroupStreamsByRepository(enabled) {
     if (!canEdit()) return false;
     const state = currentState();
+    const nextEnabled = Boolean(enabled);
     PluginStore.replace({
       ...state,
-      settings: { ...state.settings, groupStreamsByRepository: Boolean(enabled) },
+      settings: { ...state.settings, groupStreamsByRepository: nextEnabled },
       // Android keeps this setting local; it is not part of the remote
       // `plugins` repository payload. Preserve a repository mutation that may
       // already be waiting to be pushed.
       syncDirty: state.syncDirty
     });
+    if ((state.settings.groupStreamsByRepository === true) !== nextEnabled) {
+      // Android stores this one plugin preference in the profile settings
+      // blob so it survives app-data clears and follows the profile.
+      queueProfileSettingsCloudSync(getEffectivePluginProfileId());
+    }
     return true;
   },
 

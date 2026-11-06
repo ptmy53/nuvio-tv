@@ -1,5 +1,6 @@
 import { isAmbientTrailerPlaying } from "./ambientPlaybackPolicy.js";
 import { WebOSPlayerExtensions } from "../../platform/webos/webosPlayerExtensions.js";
+import { TizenScreenSaver } from "../../platform/tizen/tizenScreenSaver.js";
 import { Platform } from "../../platform/index.js";
 import { AmbientModeStore } from "../../data/local/ambientModeStore.js";
 import { ProfileManager } from "../../core/profile/profileManager.js";
@@ -26,6 +27,19 @@ const BLOCKED_ROUTES = new Set([
   "serverConnection"
 ]);
 const now = () => globalThis.performance?.now?.() ?? Date.now();
+let lastImageFailure = "";
+function logImageFailure(url, reason) {
+  let host = "";
+  try {
+    host = new URL(url).host;
+  } catch (_) {
+    /* Keep the reason when the URL is not parseable. */
+  }
+  const key = `${reason}:${host}`;
+  if (key === lastImageFailure) return;
+  lastImageFailure = key;
+  console.warn("Ambient image failed", { reason, host });
+}
 function shuffled(values) {
   const copy = [...values];
   for (let i = copy.length - 1; i > 0; i--) {
@@ -38,22 +52,41 @@ function loadImage(url, signal) {
   return new Promise((resolve) => {
     if (!url || signal.aborted) return resolve(null);
     const image = new Image();
+    // Some Tizen engines only complete an image load once it is in the
+    // document. Keep it invisible until it is moved into the slide.
+    image.setAttribute(
+      "style",
+      "position:absolute;left:0;top:0;width:1px;height:1px;opacity:0;pointer-events:none"
+    );
+    document.body?.appendChild(image);
     let timer;
     const finish = (result) => {
       clearTimeout(timer);
       signal.removeEventListener("abort", cancel);
       image.onload = null;
       image.onerror = null;
+      image.removeAttribute("style");
+      image.remove?.();
       resolve(result);
     };
     const cancel = () => {
+      image.onload = null;
+      image.onerror = null;
       image.src = "";
       finish(null);
     };
-    image.onload = () => finish(image.naturalWidth > 0 ? image : null);
-    image.onerror = () => finish(null);
+    // onload already proves the image is usable. Some TV engines report
+    // naturalWidth as 0 until the image is attached, which left Ambient black.
+    image.onload = () => finish(image);
+    image.onerror = () => {
+      logImageFailure(url, "error");
+      finish(null);
+    };
     signal.addEventListener("abort", cancel, { once: true });
-    timer = setTimeout(cancel, 10000);
+    timer = setTimeout(() => {
+      logImageFailure(url, "timeout");
+      cancel();
+    }, 10000);
     image.src = url;
   });
 }
@@ -93,9 +126,16 @@ export const AmbientMode = {
       true
     );
     document.addEventListener("visibilitychange", () => {
-      if (document.hidden) this.dismiss();
+      if (document.hidden) {
+        this.dismiss();
+        this.setTizenScreenSaverBlocked(false);
+      }
       this.lastInteraction = now();
     });
+    if (Platform.isTizen())
+      document.addEventListener("nuvio:beforeExitApp", () =>
+        this.setTizenScreenSaverBlocked(false)
+      );
     this.interval = setInterval(() => this.tick(), 1000);
     this.tick();
   },
@@ -110,6 +150,11 @@ export const AmbientMode = {
       return;
     }
     this.swallowedKey = null;
+  },
+  setTizenScreenSaverBlocked(blocked) {
+    if (!Platform.isTizen()) return;
+    if (blocked) TizenScreenSaver.block();
+    else TizenScreenSaver.unblock();
   },
   allowed(settings) {
     const route = Router.getCurrent();
@@ -136,6 +181,7 @@ export const AmbientMode = {
       this.signature = signature;
       this.generation++;
       this.controller?.abort();
+      this.loadingSignature = null;
       this.slides = [];
       this.loadedAt = 0;
       clearTimeout(this.preload);
@@ -146,29 +192,43 @@ export const AmbientMode = {
         }, 20000);
     }
     if (!this.allowed(settings)) {
+      this.setTizenScreenSaverBlocked(false);
       if (this.showing) this.dismiss();
       return;
     }
+    this.setTizenScreenSaverBlocked(true);
     if (!this.showing && now() - this.lastInteraction >= settings.timeoutMinutes * 60000)
       this.show();
   },
   async refresh() {
     const signature = this.signature;
+    const generation = this.generation;
     if (this.loadingSignature === signature) return;
     this.controller?.abort();
-    const controller = new AbortController();
+    const controller = typeof AbortController === "function" ? new AbortController() : null;
     this.controller = controller;
     this.loadingSignature = signature;
     try {
-      const slides = await loadAmbientSlides(AmbientModeStore.get().catalogKeys, controller.signal);
-      if (this.signature !== signature || controller.signal.aborted) return;
+      const slides = await loadAmbientSlides(
+        AmbientModeStore.get().catalogKeys,
+        controller?.signal
+      );
+      if (
+        this.generation !== generation ||
+        this.signature !== signature ||
+        controller?.signal.aborted
+      )
+        return;
+      if (!slides.length) console.warn("Ambient catalog load returned no slides");
       if (slides.length || this.loadedSignature !== signature) this.slides = shuffled(slides);
       this.loadedSignature = signature;
       this.loadedAt = now();
-    } catch (_) {
+    } catch (error) {
       /* Keep the last successful selection on transient failure. */
+      console.warn("Ambient catalog load failed", error);
     } finally {
-      if (this.controller === controller) this.loadingSignature = null;
+      if (this.generation === generation && this.controller === controller)
+        this.loadingSignature = null;
     }
   },
   show() {
@@ -206,10 +266,12 @@ export const AmbientMode = {
     )
       void this.refresh();
     else this.slides = shuffled(this.slides);
-    this.slideController = new AbortController();
+    // Image loading only needs DOM cancellation events, available on older TV engines too.
+    this.slideSignal = document.createDocumentFragment();
+    this.slideSignal.aborted = false;
     this.index = 0;
     this.misses = 0;
-    void this.nextSlide(this.slideController.signal);
+    void this.nextSlide(this.slideSignal);
   },
   async nextSlide(signal) {
     if (signal.aborted || !this.showing) return;
@@ -263,6 +325,14 @@ export const AmbientMode = {
     stage.appendChild(copy);
     this.root.textContent = "";
     this.root.appendChild(stage);
+    clearTimeout(this.paintTimer);
+    this.paintTimer = setTimeout(() => {
+      this.paintTimer = 0;
+      if (signal.aborted || !this.showing || !stage.isConnected) return;
+      const opacity = globalThis.getComputedStyle?.(backdrop)?.opacity;
+      if (Number(opacity) !== 0) return;
+      stage.classList.add("ambient-static");
+    }, 500);
     this.slideTimer = setTimeout(() => {
       void this.nextSlide(signal);
     }, 13250);
@@ -272,8 +342,14 @@ export const AmbientMode = {
     if (!this.showing) return;
     this.showing = false;
     this.lastInteraction = now();
-    this.slideController?.abort();
+    if (this.slideSignal) {
+      this.slideSignal.aborted = true;
+      this.slideSignal.dispatchEvent(new Event("abort"));
+      this.slideSignal = null;
+    }
     clearTimeout(this.slideTimer);
+    clearTimeout(this.paintTimer);
+    this.paintTimer = 0;
     this.root?.remove();
     this.root = null;
     const canRestoreFocus =

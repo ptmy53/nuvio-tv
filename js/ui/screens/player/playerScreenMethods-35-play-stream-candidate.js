@@ -14,11 +14,30 @@ export function createPlayerScreenMethods35() {
     logEngineFsDebug,
     getP2pInfoHash,
     t,
-    extractPlaybackHttpStatus,
     streamDirectPlaybackUrl
   } = internals;
 
   return {
+    tryServerPlaybackFallback(streamCandidate = this.getCurrentStreamCandidate()) {
+      const playback = streamCandidate?.serverPlayback || streamCandidate?.raw?.serverPlayback;
+      if (!this.activePlaybackUrl || playback?.playMethod !== "DirectPlay" || !canResolveMediaServerStream(streamCandidate)) return false;
+      if (playback.fallbackRequested) return true;
+      playback.fallbackRequested = true;
+      if (!this.pendingPlaybackRestore) {
+        this.pendingPlaybackRestore = {
+          timeSeconds: this.getPlaybackCurrentSeconds(),
+          paused: this.paused,
+          attempts: 0,
+          lastAttemptAt: 0
+        };
+      }
+      void this.playStreamCandidate(streamCandidate, {
+        serverFallbackUrl: this.activePlaybackUrl,
+        preservePlaybackState: true,
+        mountToken: this.playerMountToken
+      });
+      return true;
+    },
     async playStreamCandidate(streamCandidate, options = {}) {
       const mountToken = options?.mountToken ?? null;
       if (!this.isActiveMountToken(mountToken)) {
@@ -31,9 +50,19 @@ export function createPlayerScreenMethods35() {
       const forceEngineFsResolve = options?.forceEngineFsResolve === true;
       let targetUrl = forceEngineFsResolve ? "" : streamDirectPlaybackUrl(streamCandidate);
       if (canResolveMediaServerStream(streamCandidate)) {
+        const isCurrentRequest = () =>
+          this.isActiveMountToken(mountToken) &&
+          (!options.serverFallbackUrl ||
+            (this.activePlaybackUrl === options.serverFallbackUrl && this.getCurrentStreamCandidate()?.id === streamCandidate.id));
         try {
-          const result = await MediaServerRepository.resolve(streamCandidate);
-          if (!this.isActiveMountToken(mountToken)) return;
+          const result = await MediaServerRepository.resolve(streamCandidate, {
+            allowDirectPlay: !options.serverFallbackUrl
+          });
+          if (!isCurrentRequest()) {
+            if (result.status === "success" && options.serverFallbackUrl)
+              void MediaServerRepository.report(result.stream.serverPlayback, "stop", 0, true).catch(() => {});
+            return;
+          }
           if (result.status !== "success" || !result.stream?.url) throw new Error("servers_playback_failed");
           Object.assign(streamCandidate, result.stream);
           targetUrl = result.stream.url;
@@ -52,8 +81,7 @@ export function createPlayerScreenMethods35() {
             entry.id === streamCandidate.id ? { ...entry, ...streamCandidate } : entry
           );
         } catch (_) {
-          if (this.isActiveMountToken(mountToken))
-            this.showStartupError?.(t("servers_playback_failed", {}, "Could not start playback from the server."));
+          if (isCurrentRequest()) this.showStartupError?.(t("servers_playback_failed", {}, "Could not start playback from the server."));
           return;
         }
       }
@@ -296,7 +324,7 @@ export function createPlayerScreenMethods35() {
     mediaErrorMessage(errorCode = 0, detail = "", streamCandidate = this.getCurrentStreamCandidate()) {
       const code = Number(errorCode || 0);
       const text = String(detail || "").toLowerCase();
-      const httpStatus = extractPlaybackHttpStatus(detail);
+      const httpStatus = this.resolvePlaybackHttpStatus(detail);
       const httpMessage = this.getHttpPlaybackErrorMessage(httpStatus);
       if (httpMessage) {
         return httpMessage;
