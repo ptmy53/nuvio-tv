@@ -180,15 +180,56 @@ export const Platform = {
     const logicalWidth = Math.round(1920 / uiScale);
     const logicalHeight = Math.round(logicalWidth * 0.5625);
 
+    // ?canvas= lets one TV session test every rendering strategy when the
+    // firmware behaves differently from what the debug numbers suggest.
+    //   zoom  (default) logical canvas + CSS zoom into the surface
+    //   meta  ask the engine for a 1920 layout at 2x (fills a 3840 panel)
+    //   none  leave the app untouched (pure Vewd default surface)
+    let canvasMode = "zoom";
+    try {
+      const requested = new URL(globalThis.location.href).searchParams.get("canvas");
+      if (requested === "meta" || requested === "none" || requested === "zoom") canvasMode = requested;
+    } catch (_) {
+      // keep the default
+    }
+
     const applyDesignCanvas = () => {
       const cssWidth = Number(globalThis.innerWidth || 0);
       if (!(cssWidth > 0)) return;
+      if (canvasMode === "none") {
+        root.style.removeProperty("--foxxum-viewport-scale");
+        root.style.removeProperty("--foxxum-logical-width");
+        root.style.removeProperty("--foxxum-logical-height");
+        root.dataset.nuvioCanvas = "none";
+        return;
+      }
+      if (canvasMode === "meta") {
+        root.style.removeProperty("--foxxum-viewport-scale");
+        root.style.removeProperty("--foxxum-logical-width");
+        root.style.removeProperty("--foxxum-logical-height");
+        root.dataset.nuvioCanvas = "meta";
+        return;
+      }
       const zoom = Math.min(1, cssWidth / logicalWidth);
       root.dataset.nuvioCanvas = `${logicalWidth}@${zoom.toFixed(2)}`;
       root.style.setProperty("--foxxum-viewport-scale", String(zoom));
       root.style.setProperty("--foxxum-logical-width", `${logicalWidth}px`);
       root.style.setProperty("--foxxum-logical-height", `${logicalHeight}px`);
     };
+
+    if (canvasMode === "meta") {
+      try {
+        let viewport = globalThis.document.querySelector("meta[name='viewport']");
+        if (!viewport) {
+          viewport = globalThis.document.createElement("meta");
+          viewport.name = "viewport";
+          globalThis.document.head.appendChild(viewport);
+        }
+        viewport.setAttribute("content", "width=1920, initial-scale=2, user-scalable=no");
+      } catch (_) {
+        // ignore
+      }
+    }
 
     applyDesignCanvas();
     // The surface size can settle after the browser chrome hides; re-apply.
