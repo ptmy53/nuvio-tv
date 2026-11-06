@@ -172,54 +172,29 @@ export const Platform = {
     const root = globalThis.document.documentElement;
     root.classList.add("foxxum-tv");
     const uiScale = this.resolveLegacyFoxxumUiScale();
-    // A smaller logical width makes Vewd scale everything up to the panel, so
-    // the UI grows without touching layout math or `100vw` rules.
-    const targetWidth = Math.round(1920 / uiScale);
+    // Vewd renders the page into its own small surface (1280x720 on MB180) and
+    // the TV upscales that to the 4K panel. Do NOT touch the viewport meta: an
+    // explicit width made Vewd draw 1920 real pixels in the top-left corner of
+    // a 3840 panel, which is the "small, not fullscreen" symptom. Lay the app
+    // out on a 1920/uiScale canvas and zoom it down to the real surface.
+    const logicalWidth = Math.round(1920 / uiScale);
+    const logicalHeight = Math.round(logicalWidth * 0.5625);
 
     const applyDesignCanvas = () => {
       const cssWidth = Number(globalThis.innerWidth || 0);
       if (!(cssWidth > 0)) return;
-      const honoured = Math.abs(cssWidth - targetWidth) <= Math.max(40, targetWidth * 0.06);
-      if (honoured) {
-        // The engine mapped our logical width onto the panel: no CSS zoom.
-        root.style.removeProperty("--foxxum-viewport-scale");
-        root.style.removeProperty("--foxxum-logical-width");
-        root.style.removeProperty("--foxxum-logical-height");
-        root.dataset.nuvioCanvas = `native:${targetWidth}`;
-        return;
-      }
-      // Fallback only shrinks (never enlarges) so `100vw` never overflows.
-      const zoom = Math.min(1, cssWidth / targetWidth);
-      root.dataset.nuvioCanvas = `zoom:${zoom.toFixed(2)}`;
-      if (zoom >= 0.999) {
-        root.style.removeProperty("--foxxum-viewport-scale");
-        root.style.removeProperty("--foxxum-logical-width");
-        root.style.removeProperty("--foxxum-logical-height");
-        return;
-      }
+      const zoom = Math.min(1, cssWidth / logicalWidth);
+      root.dataset.nuvioCanvas = `${logicalWidth}@${zoom.toFixed(2)}`;
       root.style.setProperty("--foxxum-viewport-scale", String(zoom));
-      root.style.setProperty("--foxxum-logical-width", `${targetWidth}px`);
-      root.style.setProperty("--foxxum-logical-height", `${Math.round(targetWidth * 0.5625)}px`);
+      root.style.setProperty("--foxxum-logical-width", `${logicalWidth}px`);
+      root.style.setProperty("--foxxum-logical-height", `${logicalHeight}px`);
     };
 
-    try {
-      let viewport = globalThis.document.querySelector("meta[name='viewport']");
-      if (!viewport) {
-        viewport = globalThis.document.createElement("meta");
-        viewport.name = "viewport";
-        globalThis.document.head.appendChild(viewport);
-      }
-      // No initial-scale: let the engine pick the scale that fits the width.
-      viewport.setAttribute("content", `width=${targetWidth}, user-scalable=no`);
-    } catch (_) {
-      // ignore: the zoom fallback below still applies
-    }
-
     applyDesignCanvas();
-    // The meta change reflows asynchronously; re-check after it settles.
+    // The surface size can settle after the browser chrome hides; re-apply.
     try {
-      globalThis.setTimeout(applyDesignCanvas, 350);
-      globalThis.setTimeout(applyDesignCanvas, 1200);
+      globalThis.setTimeout(applyDesignCanvas, 400);
+      globalThis.setTimeout(applyDesignCanvas, 1500);
     } catch (_) {
       // ignore
     }
