@@ -137,7 +137,8 @@ export function installTvInputDebug() {
       "platform: " + String(globalThis.__NUVIO_PLATFORM__ || "(otomatik)") +
         "  |  " + String(globalThis.innerWidth) + "x" + String(globalThis.innerHeight),
       "screen: " + String(globalThis.screen?.width || 0) + "x" + String(globalThis.screen?.height || 0) +
-        "  dpr=" + String(globalThis.devicePixelRatio || 1),
+        "  dpr=" + String(globalThis.devicePixelRatio || 1) +
+        "  tuval=" + String(globalThis.document?.documentElement?.dataset?.nuvioCanvas || "-"),
       "runtime: Worker=" + (typeof globalThis.Worker === "function" ? "var" : "YOK") +
         "  WebAssembly=" + (typeof globalThis.WebAssembly === "object" ? "var" : "YOK") +
         "  fetch=" + (typeof globalThis.fetch === "function" ? "var" : "YOK"),

@@ -134,32 +134,72 @@ export const Platform = {
     return /vewd|foxxum|vestel|opera tv|smarttv|hbbtv/.test(ua);
   },
 
+  // UI scale for Vewd/Foxxum. A 65" 4K panel viewed from the sofa makes the
+  // 1920x1080 desktop web layout look small, and some Vewd builds also render
+  // the surface 1:1 in the panel. `?scale=` (persisted) lets the value be
+  // tuned on the TV without a rebuild.
+  resolveLegacyFoxxumUiScale() {
+    const MIN = 1;
+    const MAX = 1.8;
+    const clamp = (value) => Math.min(MAX, Math.max(MIN, value));
+    try {
+      const raw = new URL(globalThis.location.href).searchParams.get("scale");
+      if (raw) {
+        const parsed = Number(raw);
+        if (Number.isFinite(parsed) && parsed >= MIN && parsed <= MAX) {
+          try {
+            globalThis.localStorage?.setItem("nuvio.uiScale", String(parsed));
+          } catch (_) {
+            // storage may be blocked; the URL value still applies
+          }
+          return clamp(parsed);
+        }
+      }
+    } catch (_) {
+      // ignore malformed URLs
+    }
+    try {
+      const stored = Number(globalThis.localStorage?.getItem("nuvio.uiScale") || 0);
+      if (Number.isFinite(stored) && stored >= MIN && stored <= MAX) return clamp(stored);
+    } catch (_) {
+      // ignore blocked storage
+    }
+    return 1.2;
+  },
+
   applyLegacyFoxxumViewportScale() {
     if (!this.isLegacyFoxxum() || !globalThis.document?.documentElement) return 1;
     const root = globalThis.document.documentElement;
     root.classList.add("foxxum-tv");
+    const uiScale = this.resolveLegacyFoxxumUiScale();
+    // A smaller logical width makes Vewd scale everything up to the panel, so
+    // the UI grows without touching layout math or `100vw` rules.
+    const targetWidth = Math.round(1920 / uiScale);
 
-    // Vewd on Vestel/MB180 renders a small logical surface (often 1280x720)
-    // and upscales it to the 4K panel, which makes a 1920x1080 design look
-    // ~1.5x too large. Two-stage fix:
-    //   1. ask the engine for the design viewport via the viewport meta tag;
-    //   2. if the engine ignores it, zoom a 1920x1080 canvas into the space
-    //      the browser actually gives us.
     const applyDesignCanvas = () => {
       const cssWidth = Number(globalThis.innerWidth || 0);
-      const cssHeight = Number(globalThis.innerHeight || 0);
-      if (!(cssWidth > 0 && cssHeight > 0)) return;
-      if (cssWidth >= 1700) {
-        // The viewport meta was honoured; native 1920x1080 layout.
+      if (!(cssWidth > 0)) return;
+      const honoured = Math.abs(cssWidth - targetWidth) <= Math.max(40, targetWidth * 0.06);
+      if (honoured) {
+        // The engine mapped our logical width onto the panel: no CSS zoom.
+        root.style.removeProperty("--foxxum-viewport-scale");
+        root.style.removeProperty("--foxxum-logical-width");
+        root.style.removeProperty("--foxxum-logical-height");
+        root.dataset.nuvioCanvas = `native:${targetWidth}`;
+        return;
+      }
+      // Fallback only shrinks (never enlarges) so `100vw` never overflows.
+      const zoom = Math.min(1, cssWidth / targetWidth);
+      root.dataset.nuvioCanvas = `zoom:${zoom.toFixed(2)}`;
+      if (zoom >= 0.999) {
         root.style.removeProperty("--foxxum-viewport-scale");
         root.style.removeProperty("--foxxum-logical-width");
         root.style.removeProperty("--foxxum-logical-height");
         return;
       }
-      const scale = Math.max(0.4, Math.min(1, cssWidth / 1920));
-      root.style.setProperty("--foxxum-viewport-scale", String(scale));
-      root.style.setProperty("--foxxum-logical-width", "1920px");
-      root.style.setProperty("--foxxum-logical-height", "1080px");
+      root.style.setProperty("--foxxum-viewport-scale", String(zoom));
+      root.style.setProperty("--foxxum-logical-width", `${targetWidth}px`);
+      root.style.setProperty("--foxxum-logical-height", `${Math.round(targetWidth * 0.5625)}px`);
     };
 
     try {
@@ -169,10 +209,8 @@ export const Platform = {
         viewport.name = "viewport";
         globalThis.document.head.appendChild(viewport);
       }
-      viewport.setAttribute(
-        "content",
-        "width=1920, height=1080, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
-      );
+      // No initial-scale: let the engine pick the scale that fits the width.
+      viewport.setAttribute("content", `width=${targetWidth}, user-scalable=no`);
     } catch (_) {
       // ignore: the zoom fallback below still applies
     }
