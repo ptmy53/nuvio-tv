@@ -106,3 +106,29 @@ Düzenleme sonrası: `npm run build` → `dist/` kontrol → commit + push.
   kullanır. Kaynakların yasal sorumluluğu kullanıcıya aittir.
 - **Derin bağlantı:** GitHub Pages SPA geri dönüşü olmadığı için `404.html` kök dizine
   yönlendirir (workflow üretir). Uygulama içi gezinme bundan etkilenmez.
+
+---
+
+## 7. Otomatik gÃ¼ncelleme (kurulu)
+
+Ä°ki workflow var; ikisi de GitHub Actions ile Ã§alÄ±ÅŸÄ±r:
+
+| Workflow | Ne zaman | Ne yapar |
+|---|---|---|
+| `pages.yml` | `main`'e her push | `build-deploy.yml` Ã§aÄŸrÄ±lÄ±r: derler, `v=<commit>` damgasÄ± vurur, `gh-pages` dalÄ±na yayÄ±nlar |
+| `sync-upstream.yml` | Her gÃ¼n 03:00 UTC + elle | `NuvioMedia/NuvioTVSmart` `main`'ini bu depoya merge eder; yeni commit geldiyse aynÄ± Ã§alÄ±ÅŸmada yayÄ±nlar |
+
+Yani resmÃ® Nuvio yeni sÃ¼rÃ¼m Ã§Ä±kardÄ±ÄŸÄ±nda hiÃ§bir ÅŸey yapmana gerek yok: gece merge edilir,
+derlenir ve site gÃ¼ncellenir.
+
+- Merge Ã§akÄ±ÅŸÄ±rsa `merge` iÅŸi hata verir ve push etmez (sessizce Ã¶zellik kaybÄ± olmaz).
+  Ã‡Ã¶zÃ¼m: yerelde `git fetch upstream && git merge upstream/main`, Ã§akÄ±ÅŸmayÄ± dÃ¼zelt, push et.
+- Fork'a Ã¶zel dosyalar (Foxxum platformu, proxy, pointer giriÅŸi) merge sonrasÄ± kontrol edilir;
+  eksikse iÅŸ yine hata verir.
+- Actions public depoda Ã¼cretsizdir. Depo ayarlarÄ±nda Actions kapalÄ±ysa
+  (`Settings > Actions > General`) hiÃ§bir workflow Ã§alÄ±ÅŸmaz â€” bir kez yaÅŸandÄ±, aÃ§Ä±ldÄ±.
+- Elle yayÄ±n (Actions beklemeden): `powershell -File scripts/deploy-pages.ps1`
+
+**SÃ¼rÃ¼m kontrolÃ¼:** yayÄ±ndaki sÃ¼rÃ¼m `https://ptmy53.github.io/nuvio-tv/version.json` dosyasÄ±nda
+ve debug ekranÄ±ndaki `surum:` satÄ±rÄ±nda gÃ¶rÃ¼nÃ¼r.
+
