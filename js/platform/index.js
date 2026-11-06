@@ -188,7 +188,17 @@ export const Platform = {
     let canvasMode = "zoom";
     try {
       const requested = new URL(globalThis.location.href).searchParams.get("canvas");
-      if (requested === "meta" || requested === "none" || requested === "zoom") canvasMode = requested;
+      if (requested === "meta" || requested === "none" || requested === "zoom") {
+        canvasMode = requested;
+        try {
+          globalThis.localStorage?.setItem("nuvio.canvasMode", requested);
+        } catch (_) {
+          // storage blocked: the URL value still applies for this load
+        }
+      } else {
+        const stored = String(globalThis.localStorage?.getItem("nuvio.canvasMode") || "");
+        if (stored === "meta" || stored === "none" || stored === "zoom") canvasMode = stored;
+      }
     } catch (_) {
       // keep the default
     }
