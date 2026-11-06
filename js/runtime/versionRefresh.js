@@ -38,6 +38,34 @@ export function currentBuildVersion() {
   return loadedBuildVersion();
 }
 
+function refreshAlreadyAttempted(flag) {
+  try {
+    if (sessionStorage.getItem(flag)) return true;
+  } catch (_) {
+    // storage blocked: fall through to window.name
+  }
+  try {
+    return String(globalThis.name || "").includes(flag);
+  } catch (_) {
+    return false;
+  }
+}
+
+function markRefreshAttempted(flag) {
+  try {
+    sessionStorage.setItem(flag, "1");
+  } catch (_) {
+    // ignore
+  }
+  // window.name survives navigations in the same tab even when the TV browser
+  // blocks storage, so it still prevents a reload loop.
+  try {
+    globalThis.name = `${String(globalThis.name || "")}|${flag}`.slice(-512);
+  } catch (_) {
+    // ignore
+  }
+}
+
 export async function ensureLatestBuild() {
   // Drop a leftover cache-buster from a previous self-refresh so the address
   // bar always shows the same clean URL.
@@ -60,12 +88,8 @@ export async function ensureLatestBuild() {
   // One refresh attempt per published version, so a stale CDN response cannot
   // put the TV into a reload loop.
   const flag = `nuvio.buildRefreshed.${latest}`;
-  try {
-    if (sessionStorage.getItem(flag)) return;
-    sessionStorage.setItem(flag, "1");
-  } catch (_) {
-    return;
-  }
+  if (refreshAlreadyAttempted(flag)) return;
+  markRefreshAttempted(flag);
 
   try {
     const next = new URL(location.href);
