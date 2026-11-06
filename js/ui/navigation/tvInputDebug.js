@@ -3,6 +3,7 @@
 // to see which key codes the TV actually delivers to the page.
 
 import { PluginManager } from "../../core/player/pluginManager.js";
+import { currentBuildVersion, publishedBuildVersion } from "../../runtime/versionRefresh.js";
 
 function isDebugEnabled() {
   try {
@@ -164,48 +165,20 @@ export function installTvInputDebug() {
 
   // TVs and desktop browsers cache index.html and its assets for minutes, so a
   // debug screenshot can describe an older deploy than the one just published.
-  // In debug mode compare the loaded bundle against version.json and move to
-  // the fresh build once, keeping ?tvdebug=1 so the overlay stays visible.
+  // The app shell already refreshes itself (runtime/versionRefresh.js); here we
+  // only report which build is running so a screenshot stays meaningful.
   const checkPublishedVersion = () => {
-    let loadedVersion = "";
-    try {
-      const script = Array.from(document.scripts).find((entry) =>
-        String(entry.src || "").includes("app.bundle.js")
-      );
-      if (script) loadedVersion = new URL(script.src, location.href).searchParams.get("v") || "";
-    } catch (_) {
-      loadedVersion = "";
-    }
-    try {
-      fetch("version.json?_=" + Date.now(), { cache: "no-store" })
-        .then((response) => (response.ok ? response.json() : null))
-        .then((info) => {
-          const latest = String(info?.version || "").trim();
-          if (!latest) return;
-          if (!loadedVersion || latest === loadedVersion) {
-            versionNote = "surum: " + (loadedVersion || "?") + " (guncel)";
-            render();
-            return;
-          }
-          versionNote = "surum: " + loadedVersion + " -> " + latest;
-          render();
-          const flag = "nuvio.debug.reloaded." + latest;
-          try {
-            if (!sessionStorage.getItem(flag)) {
-              sessionStorage.setItem(flag, "1");
-              const next = new URL(location.href);
-              next.searchParams.set("v", latest);
-              next.searchParams.set("t", String(Date.now()));
-              location.replace(next.toString());
-            }
-          } catch (_) {
-            // storage blocked: keep running the loaded build
-          }
-        })
-        .catch(() => {});
-    } catch (_) {
-      // ignore
-    }
+    const loadedVersion = currentBuildVersion() || "";
+    publishedBuildVersion()
+      .then((latest) => {
+        if (!latest) return;
+        versionNote =
+          latest === loadedVersion
+            ? "surum: " + (loadedVersion || "?") + " (guncel)"
+            : "surum: " + (loadedVersion || "?") + " -> " + latest + " (yenileniyor)";
+        render();
+      })
+      .catch(() => {});
   };
 
   // A capability snapshot starts as "unknown" until the QuickJS/Worker

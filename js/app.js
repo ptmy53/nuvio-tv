@@ -10,6 +10,7 @@ import { detailWatchedEnrichmentService } from "./data/repository/detailWatchedE
 import { NON_BACKSTACK_ROUTES, Router } from "./ui/navigation/router.js";
 import { FocusEngine } from "./ui/navigation/focusEngine.js";
 import { installTvInputDebug } from "./ui/navigation/tvInputDebug.js";
+import { ensureLatestBuild } from "./runtime/versionRefresh.js";
 import { PlayerController } from "./core/player/playerController.js";
 import { AuthManager } from "./core/auth/authManager.js";
 import { AuthState } from "./core/auth/authState.js";
@@ -612,6 +613,9 @@ async function bootstrapApp() {
   markBootStage("Initializing TV platform");
   Platform.init();
   Platform.applyLegacyFoxxumViewportScale?.();
+  // Keep the fixed TV address on the newest published build without asking the
+  // operator to type a version parameter again.
+  void ensureLatestBuild();
   setupPluginServiceLifecycle();
   if (shouldDisableTizenPluginSupport()) {
     markBootStage("PluginService disabled on Tizen below 6.0");
