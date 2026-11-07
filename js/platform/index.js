@@ -215,7 +215,14 @@ export const Platform = {
     }
 
     const applyDesignCanvas = () => {
-      const cssWidth = Number(globalThis.innerWidth || 0);
+      // Some Vewd builds under-report innerWidth while the composited surface
+      // is wider. Use the largest viewport figure the engine exposes so the
+      // canvas always covers the painted area.
+      const cssWidth = Math.max(
+        Number(globalThis.innerWidth || 0),
+        Number(globalThis.document?.documentElement?.clientWidth || 0),
+        Number(globalThis.visualViewport?.width || 0)
+      );
       if (!(cssWidth > 0)) return;
       if (canvasMode === "none") {
         root.style.removeProperty("--foxxum-viewport-scale");
