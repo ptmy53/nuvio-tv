@@ -167,6 +167,17 @@ export const Platform = {
     return 1.2;
   },
 
+  // The player surface must map 1:1 to the Vewd viewport. The home UI is laid
+  // out on a 1920/uiScale logical canvas and zoomed down, but the video plane
+  // (and Vewd's hardware overlay) keeps the layout size of the element. If the
+  // zoom stays on, a 100vw/100vh player renders at 1/uiScale of the screen and
+  // sticks to the top-left corner, which is the "video is not fullscreen"
+  // symptom. Drop the zoom while the player route is mounted.
+  setLegacyFoxxumPlayerActive(active) {
+    if (!this.isLegacyFoxxum() || !globalThis.document?.documentElement) return;
+    globalThis.document.documentElement.classList.toggle("foxxum-player-active", active === true);
+  },
+
   applyLegacyFoxxumViewportScale() {
     if (!this.isLegacyFoxxum() || !globalThis.document?.documentElement) return 1;
     const root = globalThis.document.documentElement;
@@ -220,7 +231,11 @@ export const Platform = {
         root.dataset.nuvioCanvas = "meta";
         return;
       }
-      const zoom = Math.min(1, cssWidth / logicalWidth);
+      // Always fill the surface. Capping the zoom at 1 left the app at its
+      // logical size in the top-left corner (80% of the panel on some Vewd
+      // sessions) whenever the engine reported a wider viewport than the
+      // logical canvas.
+      const zoom = Math.max(0.1, cssWidth / logicalWidth);
       root.dataset.nuvioCanvas = `${logicalWidth}@${zoom.toFixed(2)}`;
       root.style.setProperty("--foxxum-viewport-scale", String(zoom));
       root.style.setProperty("--foxxum-logical-width", `${logicalWidth}px`);

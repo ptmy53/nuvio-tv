@@ -108,6 +108,15 @@ body {
   height: 100%;
 }
 
+/* The player (and its hardware video plane) must fill the real Vewd surface.
+   Keep the app at 1:1 while the player is mounted so 100vw/100vh video does
+   not inherit the home-canvas zoom. */
+.foxxum-tv.foxxum-player-active #app {
+  width: 100vw;
+  height: 100vh;
+  zoom: 1;
+}
+
 .row {
   margin: 40px;
 }

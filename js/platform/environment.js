@@ -17,6 +17,10 @@ export const Environment = {
     return Platform.isLegacyFoxxum();
   },
 
+  setLegacyFoxxumPlayerActive(active) {
+    return Platform.setLegacyFoxxumPlayerActive?.(active);
+  },
+
   isBackEvent(event) {
     return Platform.isBackEvent(event);
   },

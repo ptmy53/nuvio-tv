@@ -2,7 +2,7 @@
 import * as internals from "./playerScreenContext.js";
 
 export function createPlayerScreenMethods73() {
-  const { PlayerController, streamRepository, TrackingScrobbleService, ENGINEFS_NAVIGATION_CLEANUP_GRACE_MS } = internals;
+  const { PlayerController, streamRepository, TrackingScrobbleService, Environment, ENGINEFS_NAVIGATION_CLEANUP_GRACE_MS } = internals;
 
   return {
     stopTrackingBeforeTeardown() {
@@ -203,6 +203,9 @@ export function createPlayerScreenMethods73() {
         // throws during cleanup and aborts the route navigation).
         try {
           PlayerController.stop();
+        } catch (_) {}
+        try {
+          Environment.setLegacyFoxxumPlayerActive?.(false);
         } catch (_) {}
         try {
           if (this.container) {
