@@ -48,7 +48,15 @@ export function createMetaDetailsScreenMethods03() {
       // aggregator may expose a `channel` catalog whose entries are `tv`; using
       // the row type here makes the original TV addon miss both meta and streams.
       const sourceItemType = String(itemType || this.params?.catalogType).trim() || "movie";
-      const canonicalItemId = await this.resolveCanonicalDetailItemId(itemId, itemType);
+      // Slow TV networks (Vewd) can keep the TMDB lookup pending for up to
+      // 60s, which left the loading shell up while meta never started. Keep
+      // canonicalization best-effort: proceed with the raw id on timeout and
+      // let the post-paint enrichment fill in TMDB data.
+      const canonicalItemId = await withTimeout(
+        this.resolveCanonicalDetailItemId(itemId, itemType),
+        3000,
+        itemId
+      );
       if (token !== this.detailLoadToken) {
         return;
       }
