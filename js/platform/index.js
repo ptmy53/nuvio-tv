@@ -138,14 +138,44 @@ export const Platform = {
   // 1920x1080 desktop web layout look small, and some Vewd builds also render
   // the surface 1:1 in the panel. `?scale=` (persisted) lets the value be
   // tuned on the TV without a rebuild.
+  // Automatic: Vewd on MB180 reports a 1280x720 CSS surface (1920x1080
+  // backing, 2x upscale to the 4K panel). A 1280-wide logical canvas
+  // (scale 1.5) crams the 1920-designed layout into the surface, so cards
+  // and menus are cut off or nested. Scale 1.0 keeps the full 1920x1080
+  // design canvas, zoomed down to the surface, which fits without overflow.
+  // A stored ?scale=1.5 from manual testing is ignored on this surface when
+  // the URL does not ask for it, and ?scale=reset|auto|0 clears it.
+  isMb180VewdSurface() {
+    try {
+      const ua = String(globalThis.navigator?.userAgent || "").toLowerCase();
+      if (ua.includes("mb180")) return true;
+      const width = Number(globalThis.innerWidth || 0);
+      const screenWidth = Number(globalThis.screen?.width || 0);
+      const dpr = Number(globalThis.devicePixelRatio || 1);
+      return width > 0 && width <= 1280 && screenWidth >= 1920 && dpr >= 1.4;
+    } catch (_) {
+      return false;
+    }
+  },
+
   resolveLegacyFoxxumUiScale() {
     const MIN = 1;
     const MAX = 1.8;
     const clamp = (value) => Math.min(MAX, Math.max(MIN, value));
+    const autoDefault = this.isMb180VewdSurface() ? 1.0 : 1.2;
     try {
       const raw = new URL(globalThis.location.href).searchParams.get("scale");
       if (raw) {
-        const parsed = Number(raw);
+        const text = String(raw).trim().toLowerCase();
+        if (text === "auto" || text === "reset" || text === "default" || text === "0") {
+          try {
+            globalThis.localStorage?.removeItem("nuvio.uiScale");
+          } catch (_) {
+            // storage may be blocked
+          }
+          return autoDefault;
+        }
+        const parsed = Number(text);
         if (Number.isFinite(parsed) && parsed >= MIN && parsed <= MAX) {
           try {
             globalThis.localStorage?.setItem("nuvio.uiScale", String(parsed));
@@ -158,13 +188,19 @@ export const Platform = {
     } catch (_) {
       // ignore malformed URLs
     }
-    try {
-      const stored = Number(globalThis.localStorage?.getItem("nuvio.uiScale") || 0);
-      if (Number.isFinite(stored) && stored >= MIN && stored <= MAX) return clamp(stored);
-    } catch (_) {
-      // ignore blocked storage
+    // On the MB180 surface the layout only fits with the auto default.
+    // Ignore a stored value from manual ?scale= testing so every open uses
+    // the automatic browser-based scale without the user having to touch
+    // the URL. Other TVs keep the stored value.
+    if (!this.isMb180VewdSurface()) {
+      try {
+        const stored = Number(globalThis.localStorage?.getItem("nuvio.uiScale") || 0);
+        if (Number.isFinite(stored) && stored >= MIN && stored <= MAX) return clamp(stored);
+      } catch (_) {
+        // ignore blocked storage
+      }
     }
-    return 1.2;
+    return autoDefault;
   },
 
   // The player surface must map 1:1 to the Vewd viewport. The home UI is laid
