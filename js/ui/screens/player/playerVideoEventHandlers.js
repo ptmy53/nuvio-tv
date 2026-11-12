@@ -215,6 +215,10 @@ export function createPlayerVideoEventHandlers(video, isTizenAvPlayPlayback) {
         return;
       }
 
+      if (!currentEngineFsState && this.retryTizenAvPlayThroughLocalProxy?.()) {
+        return;
+      }
+
       this.markPlaybackSourceFailed(this.activePlaybackUrl);
       // Browser plugin providers can occasionally return an interstitial HTML
       // page (for example a stale HubCloud/PixelServer link) as if it were a
