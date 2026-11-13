@@ -182,14 +182,20 @@ export const Platform = {
     if (!this.isLegacyFoxxum() || !globalThis.document?.documentElement) return 1;
     const root = globalThis.document.documentElement;
     root.classList.add("foxxum-tv");
-    const uiScale = this.resolveLegacyFoxxumUiScale();
     // Vewd renders the page into its own small surface (1280x720 on MB180) and
     // the TV upscales that to the 4K panel. Do NOT touch the viewport meta: an
     // explicit width made Vewd draw 1920 real pixels in the top-left corner of
-    // a 3840 panel, which is the "small, not fullscreen" symptom. Lay the app
-    // out on a 1920/uiScale canvas and zoom it down to the real surface.
-    const logicalWidth = Math.round(1920 / uiScale);
-    const logicalHeight = Math.round(logicalWidth * 0.5625);
+    // a 3840 panel, which is the "small, not fullscreen" symptom.
+    // Fixed two-level scale requested for MB180:
+    //   - arayüz (design canvas): 1920-wide layout kept at 1.0, no ?scale knob
+    //   - uygulama (app shell): painted at a fixed 0.80 zoom, so the canvas is
+    //     the 1920 design shrunk to 1600 and the zoom fills the surface
+    //     (1280/1600 = 0.80). The zoom always recomputes from the reported
+    //     surface so the fill stays exact on other Vewd builds.
+    const APP_DESIGN_WIDTH = 1920;
+    const APP_ZOOM_LEVEL = 0.8;
+    const logicalWidth = Math.round(APP_DESIGN_WIDTH * APP_ZOOM_LEVEL); // 1600
+    const logicalHeight = Math.round(logicalWidth * 0.5625); // 900
 
     // ?canvas= lets one TV session test every rendering strategy when the
     // firmware behaves differently from what the debug numbers suggest.
