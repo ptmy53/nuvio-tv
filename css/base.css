@@ -128,14 +128,36 @@ body {
    so every row stays visible and the three rails do not overlap. */
 .foxxum-tv.foxxum-player-active .player-subtitle-modal,
 .foxxum-tv.foxxum-player-active .player-audio-modal {
-  bottom: 132px;
+  bottom: min(10.31vw, 132px);
   height: min(62vh, calc(100vh - 180px));
+  height: min(62vh, calc(100svh - 180px));
   width: min(90vw, 1200px);
   left: 5vw;
 }
 
+.foxxum-tv.foxxum-player-active .player-speed-modal {
+  bottom: min(10.31vw, 132px);
+  width: min(31.25vw, 600px);
+}
+
 .foxxum-tv.foxxum-player-active .player-subtitle-overlay-grid {
   grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr) minmax(0, 0.95fr);
+}
+
+/* Fluid sizing adopted from the nuvio-web client, scoped to Foxxum so the
+   other TV parity targets keep their fixed 1920 canvas behavior:
+   1) The home hero keeps a 16/9 shape and can never grow past the real
+      surface (svh clamp), so backdrops are not over-cropped and the rows
+      below cannot be pushed off the panel.
+   2) svh (small viewport height) everywhere an element must stay inside the
+      visible surface; #app itself keeps vh so the canvas still fills the
+      panel edge to edge. Chromium 108 in Vewd 4.23 supports svh, and the
+      vh declaration before it is the fallback for older engines. */
+.foxxum-tv .home-screen-shell .home-hero-card {
+  height: auto;
+  aspect-ratio: 16 / 9;
+  max-height: 100vh;
+  max-height: 100svh;
 }
 
 .row {
