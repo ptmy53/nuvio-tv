@@ -186,16 +186,15 @@ export const Platform = {
     // the TV upscales that to the 4K panel. Do NOT touch the viewport meta: an
     // explicit width made Vewd draw 1920 real pixels in the top-left corner of
     // a 3840 panel, which is the "small, not fullscreen" symptom.
-    // Fixed two-level scale requested for MB180:
-    //   - arayüz (design canvas): 1920-wide layout kept at 1.0, no ?scale knob
-    //   - uygulama (app shell): painted at a fixed 0.80 zoom, so the canvas is
-    //     the 1920 design shrunk to 1600 and the zoom fills the surface
-    //     (1280/1600 = 0.80). The zoom always recomputes from the reported
-    //     surface so the fill stays exact on other Vewd builds.
-    const APP_DESIGN_WIDTH = 1920;
-    const APP_ZOOM_LEVEL = 0.8;
-    const logicalWidth = Math.round(APP_DESIGN_WIDTH * APP_ZOOM_LEVEL); // 1600
-    const logicalHeight = Math.round(logicalWidth * 0.5625); // 900
+    // Restored persisted-?scale canvas (MB180 keeps 1.5 -> 1280x720 at zoom 1)
+    // plus one fixed refinement: menus, buttons and text render 5% smaller
+    // than that baseline. The 0.95 is folded into the canvas size, so the
+    // zoom still fills the reported surface edge to edge and no strip is
+    // left at the bottom or the left.
+    const APP_UI_SHRINK = 0.95;
+    const uiScale = this.resolveLegacyFoxxumUiScale();
+    const logicalWidth = (1920 / uiScale) / APP_UI_SHRINK; // 1280 -> 1347
+    const logicalHeight = logicalWidth * 0.5625;
 
     // ?canvas= lets one TV session test every rendering strategy when the
     // firmware behaves differently from what the debug numbers suggest.
